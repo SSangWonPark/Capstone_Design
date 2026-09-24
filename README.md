@@ -71,11 +71,12 @@
 Capstone_Design/
 ├── README.md
 ├── docs/
-│   ├── meetings/       # 회의록 (예: 2026-09-18.md)
+│   ├── meetings/                   # 회의록 (예: 2026-09-18.md)
+│   │   └── assets/
+│   │       └── YYYY-MM-DD/         # 해당 날짜 회의록의 첨부 이미지
 │   └── lectures/       # 수업 피드백 및 정리
 ├── worklog/            # 개인/팀 작업 기록
-├── src/                # 소스 코드
-└── assets/             # 이미지, 다이어그램 등
+└── src/                # 소스 코드
 ```
 
 <br>
@@ -97,6 +98,9 @@ Capstone_Design/
 이 저장소에는 팀 회의록, 수업 관련 자료, 작업 기록을 `docs/`와 `worklog/` 폴더에 순서대로 정리할 예정입니다.
 
 - 회의록 : `docs/meetings/YYYY-MM-DD.md` 형식으로 작성
+- 회의록 이미지 : `docs/meetings/assets/YYYY-MM-DD/` 폴더에 회의별로 분리하여 저장
+  - 이미지 파일명은 내용을 알 수 있는 영문 소문자와 하이픈 형식을 권장 (예: `system-architecture.png`)
+  - 회의록에서는 `assets/YYYY-MM-DD/파일명` 상대 경로로 참조
 - 작업 기록 : `worklog/이름_YYYY-MM-DD.md` 형식으로 작성
 
 본 내용은 세부 회의 후 양식 확정 예정.
