@@ -1,0 +1,1215 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>옷걸이 재진열 시뮬레이터 v7</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:dark;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#0b0e11;--panel:#12171c;--raise:#1a2027;--line:#252e37;
+  --fg:#e3e7eb;--muted:#8692a0;--faint:#5a6571;
+  --rod:#9ba4ad;--rail:#e5c04a;--grip:#4c76ff;--robot:#f08a3e;--drive:#e5484d;--blade:#ffb070;
+  --store:#56616d;--cable:#43d0c4;--step:#e8a33d;--power:#b48cff;--dest:#55c46f;
+  --bad:#ff4d8d;--warn:#ffc04a;--ok:#55c46f;
+  --f-ui:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:13px;line-height:1.5}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 400px;height:100%}
+.view{position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--bg)}
+#c{display:block;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;left:14px;top:14px;max-width:calc(100% - 28px);background:rgba(11,14,17,.86);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;pointer-events:none}
+.hud .ph{font-weight:600;font-size:15px;display:flex;gap:8px;align-items:baseline}
+.hud .ph .n{font-family:var(--f-mono);font-size:12px;color:var(--grip)}
+.hud .sub{color:var(--muted);min-height:1.5em;max-width:560px}
+.hud .nums{display:flex;flex-wrap:wrap;gap:2px 16px;margin-top:4px;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hud .nums b{color:var(--fg);font-weight:500}
+.badge{position:absolute;right:14px;top:14px;background:rgba(255,77,141,.14);border:1px solid var(--bad);color:var(--bad);border-radius:6px;padding:6px 10px;font-weight:600;max-width:40%}
+.views{position:absolute;left:14px;bottom:14px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 28px)}
+.hint{position:absolute;right:14px;bottom:16px;color:var(--faint);font-size:11.5px}
+.panel{border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:18px 18px 28px;display:flex;flex-direction:column;gap:22px}
+h1{margin:0;font-size:17px;font-weight:600;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:10px}
+h2{margin:0;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.03em}
+h3{margin:6px 0 0;font-size:11.5px;font-weight:500;color:var(--faint);letter-spacing:.03em;grid-column:1/-1}
+h3:first-child{margin-top:0}
+button{font:inherit;color:var(--fg);background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:#3b4753}
+button:focus-visible,input:focus-visible{outline:2px solid var(--grip);outline-offset:2px}
+button[aria-pressed="true"]{background:#1b2849;border-color:var(--grip);color:#fff}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.primary{background:var(--grip);border-color:var(--grip);color:#fff;font-weight:600;min-width:86px}
+.primary:hover{border-color:#7b9bff}
+.seg{display:flex}
+.seg button{flex:1;border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:6px 0 0 6px;margin-left:0}
+.seg button:last-child{border-radius:0 6px 6px 0}
+.seg button[aria-pressed="true"]{position:relative;z-index:1}
+.field{display:flex;flex-direction:column;gap:4px}
+.field .lab{display:flex;justify-content:space-between;gap:8px}
+.field .lab span:last-child{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--fg)}
+.field .lab span:first-child{color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--grip)}
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+ol.steps li{display:flex;gap:10px;align-items:baseline;padding:4px 8px;border-radius:6px;color:var(--muted)}
+ol.steps li .k{font-family:var(--f-mono);font-size:11.5px;width:18px;flex:none;color:var(--faint)}
+ol.steps li.on{background:#1b2849;color:#fff}
+ol.steps li.on .k{color:var(--grip)}
+.checks{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:baseline}
+.checks .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.checks .l{color:var(--muted)}
+.v.ok{color:var(--ok)} .v.warn{color:var(--warn)} .v.bad{color:var(--bad)}
+.formula{color:var(--faint);font-size:11.5px;margin:0}
+.hookfig{display:flex;gap:12px;align-items:center}
+.hookfig canvas{flex:none;width:120px;height:120px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.hookfig p{margin:0;color:var(--muted);font-size:12px;min-width:0}
+ul.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+ul.log li.ok{color:#9fdcae} ul.log li.warn{color:var(--warn)} ul.log li.bad{color:var(--bad)}
+ul.legend{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+ul.legend li{display:flex;align-items:center;gap:8px}
+ul.legend i{width:18px;height:4px;border-radius:2px;flex:none}
+.note{color:var(--muted);font-size:12px;margin:0}
+.note b{color:var(--fg);font-weight:500}
+table.rev{width:100%;border-collapse:collapse;font-size:12px}
+table.rev th{text-align:left;font-weight:500;color:var(--faint);padding:4px 6px 4px 0;border-bottom:1px solid var(--line)}
+table.rev td{padding:6px 6px 6px 0;border-bottom:1px solid var(--line);vertical-align:top;color:var(--muted)}
+table.rev td:first-child{color:var(--fg);white-space:nowrap}
+table.rev td b{color:var(--fg);font-weight:500}
+.wiring svg{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.bus{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;font-size:12px;color:var(--muted)}
+.bus .p{font-family:var(--f-mono);color:var(--cable)}
+.bus .p.s{color:var(--step)}
+.bus b{color:var(--fg);font-weight:500}
+ol.il{margin:0;padding-left:18px;color:var(--muted);font-size:12px;display:flex;flex-direction:column;gap:5px}
+ol.il b{color:var(--fg);font-weight:500}
+@media (max-width:880px){
+  html,body{height:auto}
+  .app{grid-template-columns:1fr;grid-template-rows:66vh auto;height:auto}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible;padding:18px 16px 28px}
+  .hud{font-size:12px;padding:8px 10px}
+  .hint{display:none}
+  .views button{padding:5px 8px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="view">
+    <canvas id="c" aria-label="옷걸이 재진열 로봇 3D 시뮬레이션"></canvas>
+    <div class="hud" aria-live="polite">
+      <div class="ph"><span class="n" id="hN"></span><span id="hPh">준비</span></div>
+      <div class="sub" id="hSub"></div>
+      <div class="nums">
+        <span>재진열 <b id="nDone">0</b>/<b id="nTot">8</b></span>
+        <span>벌림 틈 <b id="nGap">–</b></span>
+        <span>밀린 옷 <b id="nPushed">–</b></span>
+        <span>캐리지 <b id="nG">0</b> cm</span>
+        <span>사이클 <b id="nCyc">–</b></span>
+      </div>
+    </div>
+    <div class="badge" id="badge" hidden>간섭 감지</div>
+    <div class="views" role="group" aria-label="시점">
+      <button id="v-iso" aria-pressed="true">3D</button>
+      <button id="v-top" aria-pressed="false">위에서</button>
+      <button id="v-front" aria-pressed="false">진행 방향</button>
+      <button id="v-ins" aria-pressed="false">삽입부 따라가기</button>
+      <button id="v-dock" aria-pressed="false">U 베이 · 리프트</button>
+      <button id="v-coup" aria-pressed="false">위쪽 컵</button>
+      <button id="v-head" aria-pressed="false">벌림판 헤드</button>
+      <button id="v-cart" aria-pressed="false">대차·운반 핀</button>
+      <button id="clothes" aria-pressed="true">옷 표시</button>
+      <button id="cables" aria-pressed="true">배선 표시</button>
+      <button id="labels" aria-pressed="true">이름표</button>
+    </div>
+    <div class="hint">드래그 회전 · 휠 확대 · 우클릭 이동 · 가까이 가면 이름표</div>
+  </div>
+
+  <aside class="panel">
+    <header>
+      <h1>옷걸이 재진열 시뮬레이터 v7</h1>
+      <p>옷걸이를 집지 않고 고리를 운반 핀에 걸어 나르는 구조. 행거를 U자 베이로 들어 싣고, 벌림판이 진열 행거를 5 cm씩 벌리면 캐리지가 옷을 밀어 넣고 셔틀 Z를 내려 고리를 봉에 얹어요 · 길이 cm</p>
+    </header>
+
+    <section>
+      <div class="row">
+        <button class="primary" id="play">일시정지</button>
+        <button id="step">한 단계</button>
+        <button id="reset">처음부터</button>
+      </div>
+      <div class="field">
+        <div class="lab"><span>재생 속도</span></div>
+        <div class="seg" id="speed">
+          <button data-v="0.5" aria-pressed="false">0.5×</button>
+          <button data-v="1" aria-pressed="true">1×</button>
+          <button data-v="2" aria-pressed="false">2×</button>
+          <button data-v="4" aria-pressed="false">4×</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>진행 단계</h2>
+      <ol class="steps" id="steps">
+        <li><span class="k">1</span>U 베이로 진입 (행거는 브레이크 잠긴 채)</li>
+        <li><span class="k">2</span>리프트 4 cm · 원뿔 핀 안착 · 위쪽 컵 물림</li>
+        <li><span class="k">3</span>대기 행거 회전 · 운반 핀이 고리 안으로</li>
+        <li><span class="k">4</span>행거 3 cm 내림 · 고리가 핀으로 옮겨 걸림</li>
+        <li><span class="k">5</span>대차가 스테이션으로 · RFID 확인</li>
+        <li><span class="k">6</span>목표 틈 옆으로 주행 · 봉 높이 측정</li>
+        <li><span class="k">7</span>벌림판 내림 · 양옆으로 5 cm씩 벌림</li>
+        <li><span class="k">8</span>셔틀 Z 맞춤 · 캐리지 전개 (봉이 목에 닿음)</li>
+        <li><span class="k">9</span>셔틀 Z 내림 · 고리가 봉에 얹힘</li>
+        <li><span class="k">10</span>벌림판 올림 · 핀 빼기 · 캐리지 복귀</li>
+        <li><span class="k">11</span>리프트 내림 · 후진 이탈</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>판정</h2>
+      <div class="checks" id="checks"></div>
+      <p class="formula" id="formula"></p>
+    </section>
+
+    <section>
+      <h2>v6 → v7 · 클립으로 집지 않고 운반 핀에 걸기</h2>
+      <table class="rev">
+        <tr><th>항목</th><th>v7</th></tr>
+        <tr><td>왜 바꿨나</td><td>v6까지는 대차의 스냅 클립이 옷걸이 목을 <b>마찰로</b> 집었어요. 2 kg 옷을 들려면 30 N 넘게 조여야 하고, <b>나무 옷걸이는 고리가 몸통에 바로 박혀 목이 1~2 cm뿐</b>이라 집을 자리가 없어요. 나무·철사·플라스틱 옷걸이의 공통점은 고리 하나라서 고리를 지름 6 mm 운반 핀에 걸어 무게로 날라요.</td></tr>
+        <tr><td>집기 (대기 행거)</td><td>대차가 레일로 들어가면 끝이 총알 모양인 핀이 대기봉 옆 1.5 cm, 고리 안으로 들어가요. U 베이 리프트가 행거를 <b>3 cm 내리면</b> 고리가 핀에 걸려 옆으로 옮겨 앉고, 대기봉은 고리 안에서 떨어져요. 대차가 나오면 고리가 대기봉 끝으로 빠져요.</td></tr>
+        <tr><td>걸기 (진열 행거)</td><td>캐리지가 봉이 고리 끝 아래로 들어와 <b>목에 닿을 때까지</b> 가요. 그 자리가 곧 맞는 위치라 좌우를 따로 맞출 필요가 없어요. 셔틀 Z를 내리면서 3 mm 뒤로 비켜 고리를 봉에 얹고, 핀은 봉 옆 1.5 mm 틈으로 봉 아래까지 내려가요. 떨어뜨리지 않고 내려놓아요.</td></tr>
+        <tr><td>핀 빼기</td><td>핀이 고리 안에 있어서 그대로 빼면 걸려요. 캐리지의 <b>핀 빼기 서보</b>가 대차 팔 속 푸시로드를 밀어 핀을 옆(봉 방향)으로 2.8 cm 빼요. 대차는 여전히 무전원이에요.</td></tr>
+        <tr><td>빠진 것</td><td>스냅 클립, 접촉 핑거, 원위치 리셋 핀, 해제 확인 스위치, 3.5 cm 낙하</td></tr>
+        <tr><td>걸림 확인</td><td>셔틀 Z XL430의 부하가 옷 무게만큼 줄면 고리가 봉으로 넘어간 거예요. 카메라 없이도 확인돼요.</td></tr>
+        <tr><td>대가</td><td>모터 1개 추가(바퀴 + 8), 셔틀 Z 행정 +4 ~ −10 cm, 리프트가 옷 한 벌마다 3 cm씩 오르내려 사이클 약 4초 증가, 대기봉 지름 25 → 16 mm.</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>행거 개조 사양</h2>
+      <table class="rev">
+        <tr><th>부위</th><th>내용</th></tr>
+        <tr><td>베이스</td><td>둥근 베이스 → 56×56 강판(6 mm, 약 15 kg). 판 아래를 바닥에서 10 cm 띄워 리프트 레일이 들어갈 자리를 만들어요.</td></tr>
+        <tr><td>리프트 러그</td><td>양옆에 30×30 앵글을 앞뒤로 길게 달고, 아래에 원뿔 구멍 2개씩(Ø20, 모따기).</td></tr>
+        <tr><td>바퀴</td><td>모서리 4개(Ø75), 2개는 브레이크 — 늘 잠가 둬요.</td></tr>
+        <tr><td>대기봉</td><td>지름 25 → <b>16 mm</b>, PTFE 코팅. 고리 안에서 운반 핀(6 mm)이 옆으로 들어갈 자리가 생겨요. 아래쪽 방향 키 핀은 핀 반대쪽에 그대로 둬요.</td></tr>
+        <tr><td>가운데 기둥</td><td>고정 기둥 → <b>회전 튜브</b>(40×2 강관, 비틀림 0.03° 이하). 아래 플랜지 베어링 + 위 베어링, 위끝에 십자 도그.</td></tr>
+        <tr><td>인덱스 잠금</td><td>허브 위 스프링 핀. 로봇 컵이 누르면 풀리고, 떼면 90°마다 잠겨서 사람이 옷을 걸 때 돌아가지 않아요.</td></tr>
+        <tr><td>표식</td><td>베이스 뒤쪽에 AprilTag(카메라 정렬), RFID 태그(행거 번호).</td></tr>
+        <tr><td>무게</td><td>빈 행거 약 21 kg + 옷 8벌 12 kg ≈ 33 kg.</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>모터 배치 · 필요 출력</h2>
+      <table class="rev">
+        <tr><th>위치 · 모터</th><th>필요한 힘 · 토크 → 여유</th></tr>
+        <tr><td>바퀴 ×2<br>24 V BLDC 100 W 기어드</td><td>로봇 약 65 kg, 0.35 m/s, 가속 0.3 m/s², 2° 문턱 → 합 55 N, 바퀴당 1.9 N·m, 기계 출력 약 20 W. 100 W ×2면 <b>5배</b>. MD200T가 RS485로 받아요.</td></tr>
+        <tr><td>대기 행거 회전<br>XL430 + 8:1 타이밍벨트 (상단 팔)</td><td>행거가 올라오며 스프링 컵에 물려요. 관성 1.6 kg·m²를 90° 2.5초로 → 1.6 N·m + 베어링 0.5 = <b>2.1 N·m</b>. 출력축 정지 토크 약 10 N·m, 연속 사용 기준(1/3) 3.4 N·m → <b>1.6배</b>. 빨리 돌리면 옷이 원심력으로 벌어지니 이 속도가 적당해요.</td></tr>
+        <tr><td>리프트<br>24 V 리니어 액추에이터 1000 N, 행정 50 mm</td><td>행거 + 옷 약 33 kg → 324 N, 링크 효율 0.85 → 380 N. 1000 N이면 <b>2.6배</b>. 15 mm/s로 약 3초. 끝 스위치 내장, BTS7960 H브리지로 구동해요.</td></tr>
+        <tr><td>레일 벨트 (대차)<br>NEMA17 42×40, GT2 20T</td><td>대차 + 옷 2 kg, 가속 1 m/s² + 마찰 → 4 N, 0.03 N·m. 정지 0.4 N·m → <b>10배 이상</b>.</td></tr>
+        <tr><td>캐리지 (빔)<br>NEMA17 42×48, GT2 9 mm</td><td>캐리지·Z·대차·옷 3.7 kg, 바퀴 마찰 5 N + 가속 2 N + 옷이 틈을 비비며 들어가는 힘 약 10 N → 17 N, 0.11 N·m(25 cm/s = 375 rpm). 그 속도에서 약 0.3 N·m → <b>2.7배</b>. 감속기 필요 없음.</td></tr>
+        <tr><td>셔틀 Z<br>XL430 + 랙·피니언 r 8 mm</td><td>세그먼트·대차·옷 2.4 kg → 24 N, 0.19 N·m. 연속 0.47 N·m → <b>2.5배</b>. 정하중 스프링으로 무게를 받쳐 비상정지 때 처지지 않게.</td></tr>
+        <tr><td>벌림판 내림<br>XL430 + 랙·피니언 r 8 mm</td><td>헤드 1.1 kg + 옷 사이를 비집는 힘 5 N → 16 N, 0.13 N·m → <b>3.6배</b>. 행정 약 30 cm라 확장 위치 모드(여러 바퀴)로 써요.</td></tr>
+        <tr><td>벌림판 벌림<br>XL430 + 2:1 기어 + 좌우 랙·피니언 r 6 mm</td><td>밀리는 옷 벌당 3.5 N. 봉 위 22벌이 전부 밀리는 최악(한쪽 11벌씩)이면 77 N × 6 mm ÷ 2 ÷ 0.9 = 0.26 N·m. 연속 0.47 N·m → <b>1.8배</b>.</td></tr>
+        <tr><td>핀 빼기<br>XL430 (캐리지 Z 슬라이드)</td><td>스프링(약 5 N)을 이기고 푸시로드로 핀을 2.8 cm 밀어요. 레버 2 cm → 0.1 N·m, 정지 1.4 N·m → <b>10배 이상</b>. 대차 쪽은 전선 없이 기계식이에요.</tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>전력 예산</h2>
+      <table class="rev">
+        <tr><th>부하</th><th>평균 · 최대</th></tr>
+        <tr><td>Jetson (19 V)</td><td>10 W · 15 W</td></tr>
+        <tr><td>OpenCR + 센서</td><td>8 W · 10 W (라이다, 카메라 2, ToF 3, RFID)</td></tr>
+        <tr><td>바퀴 ×2</td><td>18 W(주행 30%) · 드라이버 전류 제한 5 A ×2</td></tr>
+        <tr><td>스텝 ×2</td><td>6 W · 30 W</td></tr>
+        <tr><td>다이나믹셀 ×5 (12 V)</td><td>9 W · 약 50 W (2개 정지 토크 + 3개 보통)</td></tr>
+        <tr><td>리프트 액추에이터</td><td>1 W 미만 · 24 V 약 3 A를 3초 (바퀴 정지 중에만)</td></tr>
+        <tr><td><b>합</b></td><td><b>약 60 W</b>(변환 손실 포함) · <b>순간 약 16 A</b>(24 V). 240 Wh 팩 80% 사용 시 <b>약 3.2시간</b>. BMS 연속 20 A, 퓨즈 25 A.</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>구조 검토 · 보강</h2>
+      <table class="rev">
+        <tr><th>부위</th><th>판단 · 보강</th></tr>
+        <tr><td>프레임</td><td><b>PVC 파이프는 불가</b>(탄성계수가 알루미늄의 1/23, 끼움 이음이 흔들림). <b>3030 알루미늄 프로파일</b> + 코너 브래킷, 왼쪽 면은 옷이 나가는 문이라 위아래 <b>거셋</b>, 뒤·오른쪽 면은 X 브레이스, 4 mm 상판. 상판에는 캐리지 기둥이 지나가는 홈을 내요.</td></tr>
+        <tr><td>빔</td><td>40×40×2 각관(또는 4040 프로파일) 114 cm를 상판 위 두 점(오른쪽 끝, 왼쪽 기둥 위)에 볼트로 고정해요. 왼쪽으로 48 cm 외팔보, 끝에 헤드 1.6 kg + 캐리지·옷 3.7 kg이 걸려도 처짐은 0.3 mm 이하예요(판정 표). 캐리지는 MGN12 가이드나 편심 V휠로 유격을 0에 가깝게.</td></tr>
+        <tr><td>빔 돌출</td><td>로봇 왼쪽으로 48 cm, 바닥에서 약 1.9 m. 사람 머리 위지만 끝에 완충재와 반사 띠를 달고 라이다 안전영역에 넣어요. <b>봉 위에 선반이 달린 행거</b>에는 못 써요.</td></tr>
+        <tr><td>벌림판</td><td>3 mm 알루미늄 판 2장, 봉 앞뒤 ±8 cm에 다리(봉은 다리 사이로), 길이 23 cm. 닫으면 두께 6 mm라 고리 사이로 들어가요. 미는 점이 고리 바로 앞뒤라 옆 옷이 비틀리지 않고 미끄러져요.</td></tr>
+        <tr><td>남는 힘</td><td>좌우를 반대로 밀어서, 양쪽 밀린 벌 수가 같으면 합력 0이에요. 다르면 그 차이(최대 약 20 N)가 <b>봉 방향</b>으로 남는데, 행거 베이스가 그 방향으로 길어서 넘어지지 않고 바퀴 유지 토크로 충분히 버텨요. 진열 행거를 뒤로 미는 힘은 0이에요.</td></tr>
+        <tr><td>U 베이</td><td>3030 프로파일 팔 2개(94 cm), 끝에 캐스터 Ø100. 입구에 나팔형 가이드 + 롤러가 있어 ±8 cm 어긋나도 받아줘요. 안쪽 끝 범퍼 스위치로 끝까지 들어온 걸 알아요.</td></tr>
+        <tr><td>리프트</td><td>행정 6 cm(빈 틈 2 + 들기 4). 옷을 집을 때마다 3 cm 내렸다 올려요. 팔 안쪽에 평행 링크 레일, 토션 튜브로 양쪽을 묶어 액추에이터 1개로 같이 올려요. 레일 위 원뿔 핀 2개씩. 레일 행정 5 cm(빈 틈 2 + 들기 3).</td></tr>
+        <tr><td>무게중심</td><td>빔과 헤드가 왼쪽에, 행거가 앞에 실려도 무게중심은 좌우 바퀴선 안쪽, 앞 캐스터선과 뒷바퀴선 사이에 있어요(판정 표). 배터리를 오른쪽 뒤 아래에 둬요.</td></tr>
+        <tr><td>대기 행거</td><td>회전 지름 약 1 m, 키가 커서 <b>옆으로 당기면 넘어질 수 있어요</b>. 베이스 강판 20 kg 이상, 반경 35 cm로.</td></tr>
+        <tr><td>레일</td><td>직선 30×40×2 각관, 앞쪽 외팔보 34 cm에 25 N이 걸려도 처짐 0.1 mm 이하.</td></tr>
+        <tr><td>긴 옷</td><td>셔틀 Z로 내려가면 밑단이 섀시 윗면에 가까워져요. 판정 표의 밑단 여유를 확인해요.</td></tr>
+      </table>
+    </section>
+
+    <section class="wiring">
+      <h2>전기 · 배선</h2>
+      <svg viewBox="0 0 334 300" role="img" aria-label="로직 전원과 모터 전원을 분리한 배선도">
+        <title>로직 전원과 모터 전원을 분리한 배선도</title>
+        <desc>배터리에서 퓨즈와 메인 스위치를 거쳐 로직 전원(19 V Jetson, 12 V OpenCR)과 비상정지 접촉기 뒤 모터 전원(BLDC, 스텝 드라이버 2개, 12 V 다이나믹셀 허브)으로 나뉨</desc>
+        <g font-family="IBM Plex Sans KR, sans-serif" font-size="10.5" fill="#e3e7eb">
+          <g fill="#1a2027" stroke="#3b4753">
+            <rect x="6" y="6" width="104" height="24" rx="4"/><rect x="124" y="6" width="80" height="24" rx="4"/><rect x="218" y="6" width="110" height="24" rx="4"/>
+            <rect x="6" y="58" width="108" height="24" rx="4"/><rect x="6" y="104" width="108" height="24" rx="4"/>
+            <rect x="6" y="150" width="108" height="24" rx="4"/><rect x="6" y="196" width="108" height="24" rx="4" stroke="#43d0c4"/>
+            <rect x="220" y="58" width="108" height="24" rx="4" stroke="#e5484d"/><rect x="220" y="104" width="108" height="24" rx="4" stroke="#e5484d"/>
+            <rect x="220" y="150" width="108" height="24" rx="4"/><rect x="220" y="196" width="108" height="24" rx="4"/><rect x="220" y="242" width="108" height="24" rx="4"/>
+          </g>
+          <text x="58" y="22" text-anchor="middle">배터리 7S · BMS</text>
+          <text x="164" y="22" text-anchor="middle">퓨즈 25A</text>
+          <text x="273" y="22" text-anchor="middle">메인 스위치</text>
+          <text x="60" y="74" text-anchor="middle">DC-DC 19V 3A</text>
+          <text x="60" y="120" text-anchor="middle">Jetson</text>
+          <text x="60" y="166" text-anchor="middle">DC-DC 12V 3A</text>
+          <text x="60" y="212" text-anchor="middle">OpenCR</text>
+          <text x="274" y="74" text-anchor="middle">비상정지 · 안전릴레이</text>
+          <text x="274" y="120" text-anchor="middle">K1 접촉기</text>
+          <text x="274" y="166" text-anchor="middle">MD200T → BLDC ×2</text>
+          <text x="274" y="212" text-anchor="middle">스텝 ×2 · 리프트 H브리지</text>
+          <text x="274" y="258" text-anchor="middle">12V 10A → DXL ×4</text>
+          <g stroke="#b48cff" stroke-width="1.6" fill="none">
+            <path d="M110 18H124M204 18H218M273 30V44M60 44H274M60 44V58M274 44V58M60 82V104M118 44V162H114M60 174V196M274 82V104M274 128V136H214V254H220M214 162H220M214 208H220"/>
+          </g>
+          <text x="130" y="40" font-size="9.5" fill="#b48cff">24V (20~29.4V)</text>
+          <text x="8" y="50" font-size="9.5" fill="#8692a0">로직 · 항상 켜짐</text>
+          <text x="226" y="50" font-size="9.5" fill="#8692a0">모터 · 비상정지로 차단</text>
+          <g stroke="#43d0c4" stroke-width="1.3" fill="none">
+            <path d="M114 112H150V204H114"/>
+            <path d="M114 122H170V158H214" stroke-dasharray="4 3"/>
+            <path d="M114 214H220"/>
+            <path d="M80 220V250H220" />
+          </g>
+          <text x="154" y="152" font-size="9.5" fill="#43d0c4">USB</text>
+          <text x="174" y="152" font-size="9.5" fill="#43d0c4">RS485</text>
+          <text x="142" y="226" font-size="9.5" fill="#e8a33d">STEP/DIR · PWM</text>
+          <text x="124" y="262" font-size="9.5" fill="#43d0c4">TTL A·B·C 데이터</text>
+          <text x="124" y="98" font-size="9.5" fill="#8692a0">USB: RFID·카메라 2</text>
+          <text x="124" y="110" font-size="9.5" fill="#8692a0">·라이다·헤드 ToF</text>
+          <text x="6" y="290" font-size="9.5" fill="#8692a0">K1 코일 = 비상정지 정상 AND OpenCR 하트비트 정상</text>
+        </g>
+      </svg>
+      <div class="bus">
+        <span class="p">TTL A</span><span><b>고정</b> · OpenCR → 오른쪽 앞기둥 → 상단 팔 → 행거 회전 XL430(ID 1)</span>
+        <span class="p">TTL B</span><span><b>고정</b> · 뒤기둥 → 빔 위 홈 → 헤드 → 벌림판 내림 XL430(ID 2) → 벌림 XL430(ID 3, 30 cm 코일 케이블)</span>
+        <span class="p">TTL C</span><span><b>움직임</b> · 빔 위 케이블 체인 1개 → 캐리지 → 셔틀 Z XL430(ID 4) → 핀 빼기 XL430(ID 5)</span>
+        <span class="p s">STEP</span><span><b>고정</b> · 레일 벨트 NEMA17, 캐리지 NEMA17(빔 오른쪽 끝)</span>
+        <span class="p s">PWM</span><span><b>고정</b> · OpenCR → BTS7960 → 리프트 액추에이터(24 V). 액추에이터 끝 스위치 + 레일 안착 스위치 2개 + 범퍼 스위치 → GPIO</span>
+        <span class="p">USB</span><span>Jetson ← 라이다, 헤드 카메라, 측면 카메라, RFID, 헤드 ToF(UART형)</span>
+        <span class="p">RS485</span><span>OpenCR → MD200T(바퀴 2개)</span>
+      </div>
+      <table class="rev">
+        <tr><th>항목</th><th>내용</th></tr>
+        <tr><td>스텝 드라이버</td><td>7S 리튬이온은 만충 <b>29.4 V</b>인데 TMC2209는 <b>최대 29 V</b>예요. <b>18~50 V 입력 드라이버</b>(DM542 계열) ×2를 써요.</td></tr>
+        <tr><td>다이나믹셀</td><td>5개 모두 XL430. AX-12A는 프로토콜 1.0이라 섞으면 버스 설정이 꼬여요. OpenCR의 TTL 포트 3개는 한 버스라 ID로 나눠요. 전원은 12 V 10 A DC-DC를 11.6 V로 맞춰 파워 허브에서 세 갈래로, 데이터만 OpenCR로.</td></tr>
+        <tr><td>리프트</td><td>BTS7960의 전류 감지(IS 핀)를 OpenCR ADC로 읽어 4 A를 넘으면 멈춰요. 액추에이터는 웜기어라 전원이 꺼져도 내려앉지 않아요.</td></tr>
+        <tr><td>비상정지</td><td><b>2접점 비상정지 → 안전릴레이 → K1</b>이 모터 24 V(다이나믹셀 DC-DC 포함)만 끊고 Jetson·OpenCR은 켜 둬요. 서보 토크가 꺼져도 셔틀 Z와 벌림판이 떨어지지 않게 정하중 스프링으로 무게를 받쳐요. K1에 프리차지 저항, 드라이버 입력에 1000 µF.</td></tr>
+        <tr><td>움직이는 선</td><td>캐리지 케이블 체인 1개(행정 77 cm, 굽힘 반경 R38) 안에 5심 고굴곡 케이블: TTL 3선(12 V·GND·DATA) + 핀 위치 스위치 2선. 벌림 서보는 30 cm 코일 케이블.</td></tr>
+        <tr><td>센서</td><td>헤드 아래 보기 ToF(UART형) — 봉 높이·위치. 헤드 카메라 — 고리 사이 틈 찾기. 측면 ToF ×2(I²C, 30 cm 이내) — 행거와 평행·거리 유지. 핀 위치 스위치(빠짐/꽂힘) — OpenCR GPIO, 풀업 + RC 필터.</td></tr>
+        <tr><td>접지·잡음</td><td>버스바 한 점 성형 접지. 스텝선은 차폐선, 드라이버 쪽만 접지. 동력선과 TTL·센서선은 기둥 양쪽으로 갈라요.</td></tr>
+        <tr><td>배터리</td><td>평균 약 60 W, 240 Wh로 약 3.2시간. 순간 약 16 A라 BMS 연속 20 A. OpenCR ADC로 22 V 경고, 21 V 귀환.</td></tr>
+      </table>
+      <h3>동작 인터록 (OpenCR에서 강제)</h3>
+      <ol class="il">
+        <li><b>리프트 상승</b>: 범퍼 스위치 ON(행거가 끝까지 들어옴) + 바퀴 정지. 상승 뒤 안착 스위치 2개가 모두 눌려야 완료.</li>
+        <li><b>주행 허가</b>: (리프트 완전 상승 + 안착 스위치 2개 ON + 회전 서보가 컵 물림 확인) 또는 (리프트 완전 하강 + 행거 없음). 그리고 캐리지 원점, 벌림판 올림, 셔틀 Z 0, 대차 정지.</li>
+        <li><b>벌림판 내림</b>: 바퀴 정지·유지 토크, 헤드 카메라가 목표 틈(두 고리 사이)을 ±1 cm로 확인, 헤드 ToF 봉 측정이 유효할 때만.</li>
+        <li><b>벌림 부하</b>: 벌림 XL430 전류가 기준(약 0.5 A)을 넘으면 멈추고 가까운 다른 틈 → 그래도 안 되면 보류 행거.</li>
+        <li><b>캐리지 전개</b>: 벌림 완료 + 셔틀 Z가 잰 봉 높이 ±2 mm일 때만.</li>
+        <li><b>걸림 확인</b>: 셔틀 Z를 내리는 동안 XL430 부하가 옷 무게만큼 줄어야 성공. 안 줄면 다시 올려 재시도.</li>
+        <li><b>핀 빼기</b>: 걸림 확인 + 벌림판 올림 뒤에만. 핀 위치 스위치가 "빠짐"이어야 캐리지 복귀.</li>
+        <li><b>집기</b>: 리프트를 3 cm 내린 뒤 셔틀 Z(대차) 쪽 하중 증가로 고리가 핀에 걸렸는지 확인하고 대차를 뺌.</li>
+        <li><b>순서</b>: 걸림 확인(카메라) → 벌림판 올림 → 캐리지 복귀(열린 클립이 목에서 빠지고 원위치 핀이 닫음).</li>
+        <li><b>리프트 하강</b>: 바퀴 정지, 캐리지 원점, 대차가 행거에서 떨어져 있을 때만.</li>
+        <li><b>하트비트</b> 200 ms, 끊기면 K1 차단. <b>전원 순서</b>: 로직 → 자기진단 → K1 → 원점(벌림판 올림 → 캐리지 원점 → 셔틀 Z 0 → 대차 앞 끝 → 리프트는 현재 상태 유지).</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>고리 형상 · 해제 순간</h2>
+      <div class="hookfig">
+        <canvas id="hookCv" width="240" height="240" aria-label="해제 순간 고리와 진열봉의 단면"></canvas>
+        <p id="hookTxt"></p>
+      </div>
+    </section>
+
+    <section>
+      <h2>설정 <span style="color:var(--faint)">· 바꾸면 처음부터 다시 시작</span></h2>
+      <div class="field">
+        <div class="lab"><span>진열 행거에 이미 걸린 옷</span><span id="lNs"></span></div>
+        <input type="range" id="sNs" min="8" max="18" step="1" value="14">
+      </div>
+      <div class="field">
+        <div class="lab"><span>벌림 (한쪽)</span><span id="lBo"></span></div>
+        <input type="range" id="sBo" min="4.6" max="8" step="0.2" value="5">
+      </div>
+      <div class="field">
+        <div class="lab"><span>진열봉 높이 차 (설치 기준 대비)</span><span id="lRdy"></span></div>
+        <input type="range" id="sRdy" min="-4" max="4" step="1" value="-3">
+      </div>
+      <div class="field">
+        <div class="lab"><span>옷 길이 (어깨~밑단)</span><span id="lLg"></span></div>
+        <input type="range" id="sLg" min="50" max="115" step="1" value="80">
+      </div>
+      <div class="field">
+        <div class="lab"><span>옷걸이 고리 내경</span><span id="lRin"></span></div>
+        <input type="range" id="sRin" min="36" max="64" step="1" value="52">
+      </div>
+      <div class="field">
+        <div class="lab"><span>고리 끝 각도 (수평 기준, 아래쪽 −)</span><span id="lTip"></span></div>
+        <input type="range" id="sTip" min="-60" max="20" step="1" value="-10">
+      </div>
+      <div class="field">
+        <div class="lab"><span>진열봉 지름</span><span id="lDd"></span></div>
+        <input type="range" id="sDd" min="12" max="32" step="1" value="19">
+      </div>
+      <div class="field">
+        <div class="lab"><span>접근 시 고리 끝–봉 간격</span><span id="lGap"></span></div>
+        <input type="range" id="sGap" min="1" max="15" step="1" value="3">
+      </div>
+    </section>
+
+    <section>
+      <h2>부품 목록 (v5)</h2>
+      <table class="rev">
+        <tr><td>프레임</td><td>3030 알루미늄 프로파일, 코너 거셋, 4 mm 상판(캐리지 홈)</td></tr>
+        <tr><td>빔</td><td>40×40×2 각관 또는 4040 프로파일 114 cm + MGN12 가이드 80 cm</td></tr>
+        <tr><td>캐리지</td><td>NEMA17 42×48 + GT2 9 mm 벨트, 원점·끝 스위치</td></tr>
+        <tr><td>셔틀 Z</td><td>XL430 + 랙·피니언, MGN9 수직 가이드, 정하중 스프링</td></tr>
+        <tr><td>벌림판 헤드</td><td>XL430 ×2, 2:1 기어, 랙·피니언, 3 mm 알루미늄 판 2장, 헤드 ToF, 헤드 카메라, 정하중 스프링</td></tr>
+        <tr><td>운반 핀</td><td>Ø6 스테인리스 핀(총알 모양 끝), 슬리브 + 복귀 스프링, 팔 속 푸시로드 + 벨크랭크, 핀 위치 스위치</td></tr>
+        <tr><td>대차</td><td>무전원: 운반 핀 + 레일 아래 GT2 벨트 도그</td></tr>
+        <tr><td>U 베이 · 리프트</td><td>3030 팔 2개, 캐스터 Ø100 ×2, 가이드 롤러 ×4, 평행 링크 레일 2개, 토션 튜브, 24 V 리니어 액추에이터 1000 N 50 mm, BTS7960, 원뿔 핀 4개, 범퍼·안착 스위치</td></tr>
+        <tr><td>대기 행거 회전</td><td>XL430 + 8:1 타이밍벨트, 스프링 컵(행정 20 mm)</td></tr>
+        <tr><td>다이나믹셀 합계</td><td>XL430 ×5</td></tr>
+        <tr><td>스텝 드라이버</td><td>18~50 V 입력형 ×2</td></tr>
+        <tr><td>배선</td><td>케이블 체인 1개(10×15, R38), 5심 고굴곡 케이블, 코일 케이블 1</td></tr>
+        <tr><td>전원·안전</td><td>2접점 비상정지, 안전릴레이, K1 접촉기, 12 V 10 A DC-DC, 19 V DC-DC, 파워 허브</td></tr>
+        <tr><td>v5에서 뺀 것</td><td>도킹 쐐기, 스프링 래치, 보우덴, 커플러 승강 서보</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>기록</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+
+    <section>
+      <h2>범례</h2>
+      <ul class="legend">
+        <li><i style="background:var(--robot)"></i>로봇 프레임</li>
+        <li><i style="background:var(--drive)"></i>서보 · 커플러 · 래치</li>
+        <li><i style="background:var(--rail)"></i>레일 · 셔틀 레일 조각</li>
+        <li><i style="background:var(--grip)"></i>무전원 대차 · 운반 핀</li>
+        <li><i style="background:var(--blade)"></i>벌림판</li>
+        <li><i style="background:#a8b1ba"></i>고정 빔 · 캐리지</li>
+        <li><i style="background:var(--rod)"></i>대기 행거</li>
+        <li><i style="background:var(--dest)"></i>진열봉</li>
+        <li><i style="background:var(--store)"></i>이미 걸린 옷</li>
+        <li><i style="background:var(--cable)"></i>TTL 버스 · 케이블 체인</li>
+        <li><i style="background:#f08a3e"></i>U 베이 · 리프트 레일</li>
+        <li><i style="background:var(--step)"></i>스텝 모터선</li>
+        <li><i style="background:var(--power)"></i>24V 전원</li>
+        <li><i style="background:var(--bad)"></i>간섭 · 불가</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>가정 치수 · 질량</h2>
+      <p class="note">대기 행거: 봉 4개, 허브 반지름 <b>18</b>, 봉 <b>28</b>, 옷 위치 반지름 <b>39·28</b>(바깥 먼저). 로봇: 폭 <b>72</b>, 깊이 <b>54</b>, 높이 <b>189</b>. 진열봉은 로봇 왼쪽 <b>84</b> 떨어져 진행 방향과 나란히, 길이 <b>200</b>, 옷 간격 <b>8.6</b>(밀리면 8.3까지 붙음). 옷 폭 <b>48</b> · 두께 <b>8</b>.</p>
+      <p class="note">질량: 섀시 <b>18</b>, 배터리 <b>12</b>(오른쪽 아래), 알루미늄 프레임 <b>12</b>, 상판 <b>4</b>, 전장 <b>3</b>, U 베이 팔·캐스터 <b>6</b>, 리프트 <b>3.5</b>, 상단 팔 <b>2</b>, 빔 <b>1.5</b>, 헤드 <b>1.6</b>, 캐리지 <b>1.2</b> + Z·세그먼트 <b>0.5</b>, 대차 <b>0.5</b>, 옷 <b>1.5</b> kg. 벌림판: 봉 앞뒤 ±8 cm 다리, 봉 위 5 cm ~ 봉 아래 18 cm. 보류 행거 봉은 진열 행거보다 2 cm 높게 둠(높이 보정 시연).</p>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const F=-160;
+const C={RING:18,RODL:28,SLOTS:[39,28],ARM:12,XR:13.5,Z0:22,ZF:56,ZBK:110,ZS:83,SEG:10,
+  HO:36,HI:31,YTOP:27,GW:48,GT:8,WIRE:0.17,NECK:4.5,
+  XROD:-78,ZR0:40,ZR1:240,PITCH:8.6,GAPMIN:8.3,
+  RACKS:[{z0:40,z1:240,name:'진열 행거 (가득 참)'},{z0:280,z1:390,name:'보류 행거 (봉 +2 cm)'}],
+  WX:30,WZ0:64,WZ1:102,DOCK0:40,U0:-70,
+  BY:31,BX1:32,LEG:8,LEGW:3,PTOP:5,PDEP:18,UPB:4,OT:0.6,
+  BAYX:36,BAYZ:-38,PEGY:-0.7,RP:0.3,PZ:2,PW:2.8,PICKD:3,
+  BELTV:30,CARV:25,DRIVEV:35,SPREADV:5,DOWNV:15};
+const TGT=[3,9,6,12,1,7,10,4];
+const ORDER=[];for(let r=0;r<4;r++)for(let s=0;s<2;s++)ORDER.push({rod:r,slot:s});
+const P={rin:2.6,tip:-10,dd:1.9,gap:0.3,dw:1.6,lg:80,nStore:14,bopen:5,rdy:-3,speed:1,clothes:true,cables:true,labels:true};
+function dyOf(ri){return ri===1?2:P.rdy;}
+const V=(x,y,z)=>new THREE.Vector3(x,y,z), UP=V(0,1,0), ZAX=V(0,0,1);
+const ease=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+const fmt=(n,d)=>n.toFixed(d===undefined?1:d);
+const $=id=>document.getElementById(id);
+const D2R=Math.PI/180;
+
+/* ---------- geometry from parameters ---------- */
+let G={};
+function computeGeo(){
+  const W=C.WIRE, rin=P.rin, rc=rin+W, cy=-rin, th=P.tip*D2R, rr=P.dd/2, rho=rin-rr;
+  const tipX=rc*Math.cos(th), tipYb=cy+rc*Math.sin(th)-W;
+  const neckTop=cy-rc, Ny=neckTop-C.NECK, open=tipX-2*W;
+  const delta=tipX/2, yr=tipYb-P.gap-rr;
+  const yc=cy+Math.sqrt(Math.max(0,rho*rho-delta*delta));
+  const phic=Math.acos(Math.min(1,delta/Math.max(rho,1e-6)));
+  const railY=neckTop-C.NECK/2;
+  const side=(open-P.dd)/2*10;
+  const shoulderY=Ny-18*(delta+rr)/21, shMargin=(yr-rr-shoulderY)*10;
+  const fingerMargin=(yr-rr-(railY+1.1))*10;
+  const dropTotal=-(yr+rr)*10;
+  G={W,rin,rc,cy,rr,rho,tipX,tipYb,neckTop,Ny,open,delta,yr,yc,phic,railY,side,shMargin,fingerMargin,dropTotal,
+     fit:(2*rin-P.dw)*10,yS:yr+C.PEGY};
+  G.rodTopS=G.yS+rr;
+  G.xT=W+rr; G.xS=Math.min(rr+C.RP+0.15,tipX-W-rr-0.05,rho-0.05); G.phiT=Math.acos(Math.min(1,G.xS/rho));
+  G.dC=cy+Math.sqrt(Math.max(0,rho*rho-G.xS*G.xS))-yr; G.dTot=-(yr+rr-3.0+C.RP);
+  G.sGmax=C.XR-C.ARM-(C.XROD+G.xT);
+  {const PX=C.XR-C.ARM, pc=C.PEGY-C.RP, rr2=rin-C.RP; G.RYc=pc-cy-Math.sqrt(Math.max(0,rr2*rr2-PX*PX)); G.RYe=G.RYc-1.9;}
+  G.win=(yr-(Ny+rr+0.5))*10;
+  G.hemClear=(Ny-P.lg)+C.PEGY+Math.min(0,dyOf(0),dyOf(1))-(F+40);
+  G.rackR=Math.hypot(C.SLOTS[0]+C.GT/2,C.GW/2);
+}
+function hookOK(){return G.side>0&&G.shMargin>0&&G.xS>G.xT;}
+
+/* ---------- renderer ---------- */
+const view=document.querySelector('.view'), canvas=$('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0b0e11);
+const camera=new THREE.PerspectiveCamera(35,1,0.5,8000);
+const controls=new THREE.OrbitControls(camera,canvas); controls.enableDamping=true; controls.dampingFactor=.08;
+scene.add(new THREE.HemisphereLight(0xdde6f5,0x161b21,.85));
+const d1=new THREE.DirectionalLight(0xffffff,.9); d1.position.set(160,300,220); scene.add(d1);
+const d2=new THREE.DirectionalLight(0x9fb4ff,.35); d2.position.set(-220,90,-140); scene.add(d2);
+const grid=new THREE.GridHelper(800,80,0x26303a,0x161c22); grid.position.set(-40,F,120); scene.add(grid);
+
+const mat=(c,m,r,extra)=>new THREE.MeshStandardMaterial(Object.assign({color:c,metalness:m,roughness:r},extra||{}));
+const M={rod:mat(0x9ba4ad,.7,.32),hub:mat(0x4a525b,.6,.45),rail:mat(0xe5c04a,.15,.5),railDark:mat(0x6b5a22,.1,.7),
+  grip:mat(0x4c76ff,.2,.42),gripDark:mat(0x2a46a6,.2,.5),dest:mat(0x55c46f,.3,.4),destBad:mat(0xff4d8d,.2,.45),
+  bracket:mat(0x5d666f,.5,.5),robot:mat(0xf08a3e,.25,.5),robotDark:mat(0x9a5424,.3,.55),
+  panel:mat(0xf08a3e,0,.8,{transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}),
+  top:mat(0x9a5424,.2,.6,{transparent:true,opacity:.38,depthWrite:false}),
+  wheel:mat(0x22272d,.1,.85),drive:mat(0xe5484d,.3,.45),driveDark:mat(0x8f2a2e,.3,.5),motor:mat(0x2d343c,.5,.5),
+  cog:new THREE.MeshBasicMaterial({color:0x7fe3ff}),cable:mat(0x43d0c4,.1,.55),step:mat(0xe8a33d,.1,.55),power:mat(0xb48cff,.1,.55),
+  board:mat(0x2f8f6a,.2,.6),belt:mat(0x15171a,.1,.9),blade:mat(0xffb070,.35,.4),bladeDark:mat(0xb7743a,.3,.5),
+  bearing:mat(0xc9d1d9,.3,.35),boom:mat(0x7d8792,.6,.4),boom2:mat(0xa8b1ba,.6,.35),
+  bowden:mat(0x8a939c,.3,.5)};
+
+function clearG(g){while(g.children.length){const c=g.children.pop(); if(c.children&&c.children.length)clearG(c); if(!c.isSprite&&c.geometry)c.geometry.dispose();}}
+function boxAt(g,w,h,l,x,y,z,ry,m){const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,l),m);b.position.set(x,y,z);b.rotation.y=ry||0;g.add(b);return b;}
+function cylY(g,r,h,x,y,z,m){const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,18),m);c.position.set(x,y,z);g.add(c);return c;}
+function cylX(g,r,h,x,y,z,m){const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,18),m);c.rotation.z=Math.PI/2;c.position.set(x,y,z);g.add(c);return c;}
+function cylZ(g,r,h,x,y,z,m){const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,18),m);c.rotation.x=Math.PI/2;c.position.set(x,y,z);g.add(c);return c;}
+function strut(g,a,b,r,m){const d=b.clone().sub(a),L=d.length();const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,L,10),m);c.quaternion.setFromUnitVectors(UP,d.normalize());c.position.copy(a.clone().add(b).multiplyScalar(.5));g.add(c);return c;}
+
+/* ---------- labels: fixed screen size, shown when the camera is close ---------- */
+const lblCache={};
+function label(g,text,x,y,z){
+  if(!lblCache[text]){const cv=document.createElement('canvas'),ctx=cv.getContext('2d'),f='500 26px "IBM Plex Sans KR", sans-serif';
+    ctx.font=f;const w=Math.ceil(ctx.measureText(text).width)+28;cv.width=w;cv.height=44;
+    ctx.font=f;ctx.fillStyle='rgba(18,23,28,.9)';ctx.strokeStyle='#3b4753';ctx.lineWidth=2;
+    ctx.beginPath();ctx.rect(1,1,w-2,42);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#e3e7eb';ctx.textBaseline='middle';ctx.fillText(text,14,23);
+    lblCache[text]={m:new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false,transparent:true,sizeAttenuation:false}),w};}
+  const L=lblCache[text],s=new THREE.Sprite(L.m);s.scale.set(0.019*L.w/44,0.019,1);s.position.set(x,y,z);s.renderOrder=20;s.userData.label=true;g.add(s);return s;
+}
+let LBL=[]; const _lp=new THREE.Vector3();
+function syncLabelVis(){LBL=[];scene.traverse(o=>{if(o.userData&&o.userData.label)LBL.push(o);});}
+function updateLabelVis(){LBL.forEach(o=>{o.getWorldPosition(_lp);o.visible=P.labels&&_lp.distanceTo(camera.position)<440;});}
+
+/* ---------- scene graph ---------- */
+const unitG=new THREE.Group(); scene.add(unitG);
+const rackG=new THREE.Group(); unitG.add(rackG);
+const carousel=new THREE.Group(); rackG.add(carousel);
+const robotG=new THREE.Group(); unitG.add(robotG);
+const frameG=new THREE.Group(); robotG.add(frameG);
+const railG=new THREE.Group(); robotG.add(railG);
+const gG=new THREE.Group(); robotG.add(gG);       // shuttle boom
+const headG=new THREE.Group(); robotG.add(headG); // fixed spreader head at the beam end
+const chainG=new THREE.Group(); robotG.add(chainG);
+const cableG=new THREE.Group(); robotG.add(cableG);
+const storeG=new THREE.Group(); scene.add(storeG);
+const storeHG=new THREE.Group(); scene.add(storeHG);
+
+/* ---------- hanger + garment geometry (hook tip on local +X) ---------- */
+class Poly extends THREE.Curve{
+  constructor(pts){super();this.pts=pts;this.cum=[0];for(let i=1;i<pts.length;i++)this.cum.push(this.cum[i-1]+pts[i].distanceTo(pts[i-1]));this.L=this.cum[this.cum.length-1]||1;}
+  getPoint(t,o){o=o||new THREE.Vector3();const d=t*this.L,c=this.cum;let i=1;while(i<c.length-1&&c[i]<d)i++;const seg=c[i]-c[i-1];const u=seg>1e-9?(d-c[i-1])/seg:0;return o.copy(this.pts[i-1]).lerp(this.pts[i],u);}
+}
+function hookPts(){const pts=[],N=64,a1=-360+P.tip,a0=-90;
+  for(let i=0;i<=N;i++){const a=(a1+(a0-a1)*i/N)*D2R;pts.push(V(G.rc*Math.cos(a),G.cy+G.rc*Math.sin(a),0));}return pts;}
+function hangerCurve(){const pts=hookPts(),W=21,by=G.Ny-18;
+  pts.push(V(0,G.Ny));pts.push(V(W-1.5,by+0.9),V(W,by+0.15),V(W-0.6,by-0.35));
+  pts.push(V(-W+0.6,by-0.35),V(-W,by+0.15),V(-W+1.5,by+0.9));pts.push(V(-0.3,G.Ny-0.1));return new Poly(pts);}
+function garmentTop(x){const ax=Math.abs(x),Ny=G.Ny,by=Ny-18;
+  if(ax<3.5)return Ny-4; if(ax<=21.5)return (Ny-2.6)+((by+0.1)-(Ny-2.6))*(ax-3.5)/18; return by-2;}
+let hGeom=null,gGeom=null,hSamples=[],gSamples=[];
+function buildHangerGeom(){
+  const cv=hangerCurve(); if(hGeom)hGeom.dispose(); hGeom=new THREE.TubeGeometry(cv,420,0.2,6,false); hSamples=cv.getSpacedPoints(100);
+  const Ny=G.Ny,by=Ny-18,B=Ny-P.lg,hw=C.GW/2,s=new THREE.Shape();
+  s.moveTo(-3.5,Ny-2.6);s.lineTo(-21.5,by+0.1);s.lineTo(-hw,by-4);s.lineTo(-hw,B);s.lineTo(hw,B);s.lineTo(hw,by-4);s.lineTo(21.5,by+0.1);s.lineTo(3.5,Ny-2.6);s.lineTo(0,Ny-5);s.closePath();
+  if(gGeom)gGeom.dispose();
+  gGeom=new THREE.ExtrudeGeometry(s,{depth:C.GT-1.6,bevelEnabled:true,bevelThickness:.8,bevelSize:.6,bevelSegments:2,curveSegments:2});
+  gGeom.translate(0,0,-(C.GT-1.6)/2);
+  gSamples=[];
+  for(let x=-hw;x<=hw+1e-6;x+=4){const t=garmentTop(x);for(let y=B;y<=t+1e-6;y+=5)for(const z of[-C.GT/2,0,C.GT/2])gSamples.push([x,y,z]);
+    for(const z of[-C.GT/2,C.GT/2])gSamples.push([x,t,z]);}
+}
+
+/* ---------- waiting rack: 4 rods x 2 slots, key fins, docking receiver, coupler cup ---------- */
+const sprCache={};
+function numSprite(n){
+  if(!sprCache[n]){const cv=document.createElement('canvas');cv.width=cv.height=64;const g=cv.getContext('2d');
+    g.fillStyle='#1a2027';g.beginPath();g.arc(32,32,28,0,7);g.fill();g.strokeStyle='#9ba4ad';g.lineWidth=3;g.stroke();
+    g.fillStyle='#e3e7eb';g.font='600 30px "JetBrains Mono", monospace';g.textAlign='center';g.textBaseline='middle';g.fillText(String(n),32,34);
+    sprCache[n]=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false});}
+  const s=new THREE.Sprite(sprCache[n]); s.scale.set(7,7,1); s.renderOrder=10; return s;
+}
+let btnMesh=null;
+function buildRack(){
+  clearG(rackG); rackG.add(carousel); clearG(carousel);
+  const rr=P.dw/2, y=-rr, R0=C.RING, R1=C.RING+C.RODL;
+  // modified base: 56x56 steel plate on 4 casters, side lift lugs with cone holes (geometry in the lifted frame)
+  boxAt(rackG,56,2.6,56,0,F+11.3,0,0,M.hub);
+  [[-25,-25],[25,-25],[-25,25],[25,25]].forEach(([x,z],i)=>{const w=new THREE.Mesh(new THREE.SphereGeometry(3.4,14,10),i<2?M.drive:M.wheel);w.position.set(x,F+7.4,z);rackG.add(w);boxAt(rackG,3,3,3,x,F+9.6,z,0,M.bracket);});
+  [-1,1].forEach(s=>{boxAt(rackG,3,3,56,s*29.5,F+13.5,0,0,M.bracket);[-18,18].forEach(z=>cylY(rackG,1.1,0.4,s*29.5,F+11.8,z,M.motor));});
+  label(rackG,'리프트 러그 · 원뿔 구멍',-46,F+24,-10);
+  label(rackG,'브레이크 바퀴 (늘 잠금)',-40,F+10,-30);
+  cylY(rackG,4,2,0,F+13.6,0,M.bearing); label(rackG,'회전 튜브 아래 베어링',22,F+22,-6);
+  boxAt(rackG,8,8,0.4,0,F+19,28.4,0,M.board); label(rackG,'AprilTag · RFID',14,F+30,30);
+  btnMesh=cylY(rackG,1.1,1.2,0,8.6,0,M.drive);
+  label(rackG,'인덱스 잠금 (컵이 누르면 풀림)',-22,14,-4);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(R0,rr,12,90),M.rod); ring.rotation.x=Math.PI/2; ring.position.y=y; carousel.add(ring);
+  for(let k=0;k<4;k++){const a=k*Math.PI/2+Math.PI/4; boxAt(carousel,R0-4,1.2,1.6,Math.cos(a)*(R0+4)/2,y+0.6,Math.sin(a)*(R0+4)/2,-a,M.hub);}
+  cylY(carousel,4,7,0,1.5,0,M.hub);
+  {const y0=F+14.6,y1=-2;cylY(carousel,2,y1-y0,0,(y0+y1)/2,0,M.hub);}
+  const sh=new THREE.Shape(); sh.absarc(0,0,4.6,0,Math.PI*2,false); const ho=new THREE.Path(); ho.absarc(0,0,2.0,0,Math.PI*2,true); sh.holes.push(ho);
+  const cg=new THREE.ExtrudeGeometry(sh,{depth:4,bevelEnabled:false,curveSegments:32}); cg.rotateX(-Math.PI/2);
+  const cup=new THREE.Mesh(cg,M.driveDark); cup.position.y=5; carousel.add(cup);
+  for(let k=0;k<4;k++){const a=k*Math.PI/2; boxAt(carousel,1.1,1.3,1.5,3.3*Math.cos(a),8.4,3.3*Math.sin(a),-a,M.motor);}
+  for(let i=0;i<4;i++){
+    const a=i*Math.PI/2+Math.PI/2, d=V(Math.cos(a),0,Math.sin(a)), X=V(-Math.sin(a),0,Math.cos(a));
+    const rod=new THREE.Mesh(new THREE.CylinderGeometry(rr,rr,C.RODL+1,16),M.rod); rod.quaternion.setFromUnitVectors(UP,d);
+    rod.position.copy(d.clone().multiplyScalar(R0+C.RODL/2-0.5)); rod.position.y=y; carousel.add(rod);
+    const capR=new THREE.Mesh(new THREE.SphereGeometry(rr,14,10),M.rod); capR.position.copy(d.clone().multiplyScalar(R1)); capR.position.y=y; carousel.add(capR);
+    const fin=new THREE.Mesh(new THREE.BoxGeometry(0.3,2.6,C.RODL-6),M.bracket); fin.quaternion.setFromUnitVectors(ZAX,d);
+    fin.position.copy(d.clone().multiplyScalar(R0+C.RODL/2+1).add(X.clone().multiplyScalar(1.8))); fin.position.y=-2*rr-1.3; carousel.add(fin);
+    const sp=numSprite(i+1); sp.position.copy(d.clone().multiplyScalar(R1+6)); sp.position.y=y+6; carousel.add(sp);
+  }
+  label(carousel,'방향 키 핀',-6,-6,R0+14);
+}
+
+/* ---------- robot frame, tow bar, top arm + coupler, electronics ---------- */
+let OBS=[], wheels=[], cogMark=null, cogLine=null, liftG=null, coup=null, coupShaft=null;
+function RY(){return -4+Math.max(0,Math.min(4,st.lr-2))-C.PICKD*st.pk;}
+function obsBox(g,name,w,h,l,x,y,z,m){OBS.push({n:name,x0:x-w/2,x1:x+w/2,y0:y-h/2,y1:y+h/2,z0:z-l/2,z1:z+l/2});return boxAt(g,w,h,l,x,y,z,0,m);}
+function buildRobot(){
+  clearG(frameG); OBS=[]; wheels=[];
+  const zf=C.ZF,zb=C.ZBK,zc=(zf+zb)/2,D=zb-zf,HO=C.HO,yT=C.YTOP;
+  obsBox(frameG,'로봇 섀시',HO*2,20,D,0,F+20,zc,M.robotDark);
+  obsBox(frameG,'배터리·전장',22,10,D-12,18,F+35,zc,M.motor);
+  [[-C.WX,C.WZ0],[C.WX,C.WZ0],[-C.WX,C.WZ1],[C.WX,C.WZ1],[-C.BAYX,C.BAYZ+6],[C.BAYX,C.BAYZ+6]].forEach(([x,z])=>{
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(7,7,5,22),M.wheel); w.rotation.z=Math.PI/2; const p=new THREE.Group(); p.position.set(x+(x>0?3.5:-3.5),F+7,z); p.add(w); frameG.add(p); wheels.push(w);
+    w.add(new THREE.Mesh(new THREE.BoxGeometry(5.2,2,9),M.motor));});
+  const colH=yT-(F+30), colY=(yT+F+30)/2;
+  [[-1,zf+2.5],[1,zf+2.5],[-1,zb-2.5],[1,zb-2.5]].forEach(([s,z])=>obsBox(frameG,'로봇 기둥',5,colH,5,s*(C.HI+2.5),colY,z,M.robot));
+  boxAt(frameG,1,70,D-10,HO-0.5,F+65,zc,0,M.panel); OBS.push({n:'로봇 오른쪽 판',x0:HO-1,x1:HO,y0:F+30,y1:F+100,z0:zf+5,z1:zb-5});
+  [-1,1].forEach(s=>boxAt(frameG,4,4,D,s*(HO-2),yT-2,zc,0,M.robot));
+  boxAt(frameG,HO*2,4,4,0,yT-2,zf+2,0,M.robot); boxAt(frameG,HO*2,4,4,0,yT-2,zb-2,0,M.robot);
+  boxAt(frameG,HO*2,2,D,0,yT+1,zc,0,M.top);
+  // X braces on rear and right faces; gussets on the open left face
+  strut(frameG,V(-33,F+31,zb-1),V(33,yT-4,zb-1),0.6,M.robotDark); strut(frameG,V(33,F+31,zb-1),V(-33,yT-4,zb-1),0.6,M.robotDark);
+  strut(frameG,V(HO-1,F+31,zf+3),V(HO-1,yT-4,zb-3),0.6,M.robotDark); strut(frameG,V(HO-1,F+31,zb-3),V(HO-1,yT-4,zf+3),0.6,M.robotDark);
+  [[zf+5,1],[zb-5,-1]].forEach(([z,s])=>{const g1=boxAt(frameG,0.6,9,9,-HO+1.5,yT-6.5,z+s*1.5,0,M.robotDark);g1.rotation.x=Math.PI/4;const g2=boxAt(frameG,0.6,9,9,-HO+1.5,F+34,z+s*1.5,0,M.robotDark);g2.rotation.x=Math.PI/4;});
+  label(frameG,'거셋 (왼쪽은 옷 출구라 대각 보강 없음)',-HO-6,yT-14,zf+8);
+  label(frameG,'X 브레이스',HO+4,-40,zc);
+  // electronics
+  boxAt(frameG,10.5,0.6,10.5,18,F+40.4,70,0,M.board); label(frameG,'OpenCR',18,F+46,66);
+  boxAt(frameG,10,3.4,10,18,F+41.8,90,0,M.motor); boxAt(frameG,8,1.2,8,18,F+44.1,90,0,M.hub); label(frameG,'Jetson',18,F+50,92);
+  boxAt(frameG,8,4,6,18,F+42,102,0,M.drive); label(frameG,'K1 접촉기 · 안전릴레이',22,F+56,104);
+  boxAt(frameG,6,2,6,24,yT+3,104,0,M.motor); cylY(frameG,2.2,1.6,24,yT+4.8,104,M.drive); label(frameG,'비상정지',24,yT+11,104);
+  cylY(frameG,4,4,-22,yT+4,62,M.motor); label(frameG,'라이다',-22,yT+11,62);
+  boxAt(frameG,2,4,5,-HO-1,4,70,0,M.motor); label(frameG,'측면 카메라',-HO-8,9,70);
+  boxAt(frameG,1.5,10,10,28,-16,C.ZS,0,M.board); label(frameG,'RFID 안테나',30,-4,C.ZS);
+  // U bay: two floor arms around the rack base, flared guides + rollers, bumper, lift rails with cones
+  [-1,1].forEach(s=>{
+    obsBox(frameG,'U 베이 팔',6,12,zf-C.BAYZ,s*C.BAYX,F+9,(zf+C.BAYZ)/2,M.robot);
+    const g=boxAt(frameG,0.8,10,11,s*(C.BAYX-4.6),F+10,C.BAYZ-3.5,s*0.45,M.robotDark);
+    cylY(frameG,2,8,s*33.6,F+13,C.BAYZ+8,M.bearing); cylY(frameG,2,8,s*33.6,F+13,C.BAYZ+24,M.bearing);
+  });
+  boxAt(frameG,60,5,3,0,F+15,33,0,M.robotDark); boxAt(frameG,4,3,2,0,F+15,31,0,M.drive);
+  label(frameG,'U 베이 (행거 베이스를 감쌈)',-52,F+30,-20); label(frameG,'가이드 롤러',48,F+20,C.BAYZ+8); label(frameG,'범퍼 스위치',14,F+26,33);
+  liftG=new THREE.Group(); frameG.add(liftG);
+  [-1,1].forEach(s=>{boxAt(liftG,2.4,2,60,s*29.5,F+5,0,0,M.rail);[-18,18].forEach(z=>{const c=new THREE.Mesh(new THREE.ConeGeometry(1.0,2.2,16),M.drive);c.position.set(s*29.5,F+7.1,z);liftG.add(c);});
+    [-24,24].forEach(z=>strut(liftG,V(s*29.5,F+5,z),V(s*33,F+3,z+6),0.5,M.robotDark));});
+  label(liftG,'리프트 레일 + 원뿔 핀',30,F+2,-34);
+  cylX(frameG,1.6,66,0,F+8,50,M.hub); boxAt(frameG,5,5,22,14,F+16,62,0,M.motor); label(frameG,'리프트 액추에이터 1000 N + 토션 튜브',30,F+22,70);
+  // top arm + spring cup (rotation drive)
+  boxAt(frameG,6,4,zf+5,0,yT-2,(zf-5)/2,0,M.robot);
+  boxAt(frameG,9,8,10,0,19,0,0,M.motor); boxAt(frameG,3.2,6,10,6.1,19,4,0,M.drive);
+  label(frameG,'위쪽 스프링 컵 · 회전 XL430 + 8:1',16,30,6);
+  coup=new THREE.Group(); frameG.add(coup);
+  cylY(coup,3.8,1.6,0,0.8,0,M.drive);
+  for(let k=0;k<4;k++){const a=k*Math.PI/2; boxAt(coup,1.0,1.2,1.4,3.2*Math.cos(a),-0.6,3.2*Math.sin(a),-a,M.driveDark);}
+  cylY(coup,0.5,0.6,0,-0.3,0,M.hub);
+  coupShaft=cylY(frameG,0.7,1,0,13,0,M.hub);
+  // support polygon + centre of gravity
+  const pts=[V(-C.BAYX,F+0.3,C.BAYZ+6),V(C.BAYX,F+0.3,C.BAYZ+6),V(C.WX,F+0.3,C.WZ1),V(-C.WX,F+0.3,C.WZ1)];
+  frameG.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x7fe3ff,transparent:true,opacity:.6})));
+  cogMark=new THREE.Mesh(new THREE.SphereGeometry(2.2,14,10),M.cog); frameG.add(cogMark);
+  cogLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,1,0)]),new THREE.LineBasicMaterial({color:0x7fe3ff})); frameG.add(cogLine);
+}
+
+/* ---------- straight main rail, belt with dog, hangers ---------- */
+let dogPin=null;
+function buildRail(){
+  clearG(railG); const y=G.railY, z1=C.ZS-C.SEG/2, L=z1-C.Z0;
+  boxAt(railG,3,4,L,C.XR,y,C.Z0+L/2,0,M.rail);
+  boxAt(railG,3.6,5,1,C.XR,y,C.Z0-0.5,0,M.railDark);
+  const yb1=y-2.8, yb2=y-5.2, zp0=18, zp1=C.ZS+8;
+  boxAt(railG,1.2,0.25,zp1-zp0,C.XR,yb1,(zp0+zp1)/2,0,M.belt); boxAt(railG,1.2,0.25,zp1-zp0,C.XR,yb2,(zp0+zp1)/2,0,M.belt);
+  [zp0,zp1].forEach(z=>cylX(railG,1.2,1.6,C.XR,(yb1+yb2)/2,z,M.bearing));
+  boxAt(railG,4.2,4.2,4.2,C.XR,(yb1+yb2)/2,zp1+4,0,M.motor); label(railG,'레일 벨트 모터 (고정)',C.XR+14,y-8,zp1+6);
+  dogPin=cylY(railG,0.35,1.4,C.XR,yb1+0.8,C.ZS,M.drive);
+  [C.ZF+4,C.ZF+10].forEach(z=>{boxAt(railG,1.6,C.YTOP-2-(y+2),1.6,C.XR+2.4,(C.YTOP-2+y+2)/2,z,0,M.robotDark);boxAt(railG,2.4,1.2,1.6,C.XR+1.6,y+2.6,z,0,M.robotDark);});
+  label(railG,'직선 레일 + 벨트 도그 구동',C.XR+16,y+6,34);
+}
+
+/* ---------- passive cart: plate, 2 bogies, dog slot, arm, post, spring-extended carrier peg (no wires) ---------- */
+const cart=new THREE.Group(); robotG.add(cart);
+boxAt(cart,1.0,6.4,9,-2.6,0,0,0,M.grip);
+[-3.2,3.2].forEach(z=>{cylX(cart,0.85,2.6,0,2.85,z,M.bearing);cylX(cart,0.85,2.6,0,-2.85,z,M.bearing);boxAt(cart,0.5,7.4,1.6,-1.65,0,z,0,M.gripDark);});
+boxAt(cart,4.2,0.8,3,-0.5,-4.4,0,0,M.gripDark);
+boxAt(cart,C.ARM-3.1,1.0,1.0,-(C.ARM+3.1)/2,0,C.PZ,0,M.grip);
+let pegPost=null, pegG=null;
+function buildCartPeg(){
+  if(pegPost)cart.remove(pegPost); if(pegG)cart.remove(pegG);
+  const hy=C.PEGY-C.RP-G.railY;
+  pegPost=boxAt(cart,0.8,hy+0.6,0.8,-C.ARM,(hy+0.6)/2-0.3,C.PZ,0,M.gripDark);
+  pegG=new THREE.Group(); pegG.position.set(-C.ARM,hy,0); cart.add(pegG);
+  cylZ(pegG,C.RP,3.2,0,0,0.4,M.drive);
+  const tip=new THREE.Mesh(new THREE.ConeGeometry(C.RP,1.2,14),M.drive); tip.rotation.x=-Math.PI/2; tip.position.z=-1.8; pegG.add(tip);
+  boxAt(pegG,1.2,1.2,0.6,0,0,C.PZ+0.3,0,M.gripDark);
+}
+label(cart,'무전원 대차 · 운반 핀',-6,11,0);
+
+/* ---------- fixed overhead beam, carriage with Z, spreader head ---------- */
+let pegSv=null,carM,guideM,segM,zBrk,zServo,padG,padRack,bridgeM,pads2=[];
+function rodTop(ri){return G.rodTopS+dyOf(ri);}
+function padBridgeY(){ // bottom of the paddle bridge (top of the paddle bars)
+  const up=C.UPB+C.PDEP+C.PTOP, dn=rodTop(st.ri)+C.PTOP; return up+(dn-up)*st.pd;}
+function buildBooms(){
+  clearG(gG); clearG(headG); const z=C.ZS, y=C.BY, x0=C.BX1, x1=C.XROD-6, L=x0-x1;
+  boxAt(gG,L,4,4,(x0+x1)/2,y,z,0,M.boom2);
+  boxAt(gG,L-8,0.8,1.6,(x0+x1)/2-2,y-2.4,z,0,M.rail);
+  [C.HO-4,-C.HO+2.5].forEach(x=>boxAt(gG,5,y-2-(C.YTOP+2),5,x,(y-2+C.YTOP+2)/2,z,0,M.robotDark));
+  boxAt(gG,4.2,4.2,4.2,x0-1,y+4.3,z,0,M.motor); label(gG,'캐리지 NEMA17 (고정)',x0+2,y+11,z+4);
+  label(gG,'고정 빔 40×40 · 늘어나지 않음',-48,y+7,z-6);
+  carM=boxAt(gG,8,6,7,0,y,z,0,M.grip);
+  guideM=boxAt(gG,1.4,1,1.4,0,0,z+6.6,0,M.robotDark);
+  zBrk=boxAt(gG,1.4,1.4,2.2,0,0,z+5.6,0,M.robotDark);
+  zServo=boxAt(gG,3.2,4,3,0,y-5,z+6.6,0,M.drive);
+  pegSv=boxAt(gG,2.4,3,2.4,0,0,0,0,M.drive); label(pegSv,'핀 빼기 서보 → 대차 푸시로드',0,5,3);
+  segM=boxAt(gG,3,4,C.SEG,0,0,z,0,M.rail);
+  label(carM,'캐리지 + 셔틀 Z',0,8,6);
+  // spreader head: fixed housing on the beam end, moving paddle unit
+  boxAt(headG,8,6,9,C.XROD,y-5,z,0,M.motor); boxAt(headG,3.2,4,5,C.XROD+5.2,y-5,z,0,M.drive);
+  cylY(headG,1.6,1.6,C.XROD-3,y-8.8,z-3,M.board);
+  label(headG,'벌림판 헤드 · 내림 XL430 · 아래 보기 ToF · 카메라',C.XROD-10,y+8,z+10);
+  padG=new THREE.Group(); headG.add(padG);
+  padRack=boxAt(padG,1.2,30,1.2,0,15,-3.2,0,M.hub);
+  bridgeM=boxAt(padG,2*C.LEG+C.LEGW,1.2,1,0,0.6,0,0,M.robotDark);
+  boxAt(padG,3.2,3,3,0,2.7,0,0,M.drive);
+  pads2=[-1,1].map(s=>{const g=new THREE.Group();padG.add(g);
+    boxAt(g,2*C.LEG+C.LEGW,1.2,0.3,0,-0.6,0,0,M.blade);
+    const H=C.PTOP+C.PDEP;[-1,1].forEach(q=>boxAt(g,C.LEGW,H,0.3,q*C.LEG,-H/2,0,0,M.blade));
+    g.userData.s=s; return g;});
+  label(padG,'벌림판 2장 (봉은 다리 사이로)',-14,-12,8);
+}
+
+/* ---------- store rack (world) ---------- */
+function buildStore(){
+  clearG(storeG); const x=C.XROD, rr=P.dd/2;
+  C.RACKS.forEach((R,ri)=>{const L=R.z1-R.z0, y=G.yS+dyOf(ri);
+    cylZ(storeG,rr,L,x,y,(R.z0+R.z1)/2,hookOK()?M.dest:M.destBad);
+    [R.z0-2,R.z1+2].forEach((z,i)=>{const h=y+4-F;boxAt(storeG,3,h,3,x,F+h/2,z,0,M.bracket);boxAt(storeG,60,3,4,x,F+1.5,z,0,M.bracket);cylZ(storeG,rr+0.6,1.2,x,y,z+(i?-1.6:1.6),M.bracket);});
+    label(storeG,R.name,x-6,y+14,R.z0+20);});
+}
+
+/* ---------- cables: static routes + one drag chain for the carriage ---------- */
+function tube(g,pts,m,r){const c=new Poly(pts.map(p=>V(p[0],p[1],p[2])));const t=new THREE.Mesh(new THREE.TubeGeometry(c,Math.max(16,pts.length*14),r||0.38,6,false),m);g.add(t);return t;}
+function buildCables(){
+  clearG(cableG); const yE=F+41.2, yT=C.YTOP, z=C.ZS, yb=C.BY+2.4;
+  tube(cableG,[[14,yE,66],[31.2,yE,60],[31.2,yT-5,58.5],[3.6,yT-1.2,56],[3.6,yT-1.2,5],[4.8,19.5,2]],M.cable);
+  tube(cableG,[[2,F+30.6,100],[2,F+30.6,80],[14,F+19,72]],M.power);
+  tube(cableG,[[20,yE,96],[31.2,yE,107.5],[31.2,yT-5,107.5],[31.2,yT+1.5,z+8],[24,yb,z+2.6],[C.XROD+4,yb,z+2.6],[C.XROD+4,C.BY-2,z+2.6]],M.cable);
+  tube(cableG,[[16,yE,100],[29.8,yE,106.5],[29.8,yT-6.2,106.5],[29.8,yT+1,z-6],[C.BX1-1,C.BY+4.3,z-2.2]],M.step);
+  tube(cableG,[[17.2,yE,102],[28.6,yE,105.5],[28.6,G.railY-4,105.5],[14,G.railY-4,C.ZS+12]],M.step);
+  tube(cableG,[[0,F+30.6,104],[33,F+30.6,107.5],[33,yT-4,107.5],[26,yT+1.4,104]],M.power);
+  label(cableG,'TTL B · 빔 위 고정 배선 → 헤드',-40,C.BY+6,z+5);
+}
+function chainPts(xf,xm,y0,z0,r){
+  const xb=(xf+xm-80)/2, pts=[[xf,y0,z0],[xb,y0,z0]];
+  for(let i=1;i<10;i++){const a=Math.PI*i/10;pts.push([xb-r*Math.sin(a),y0+r-r*Math.cos(a),z0]);}
+  pts.push([xb,y0+2*r,z0]); pts.push([xm,y0+2*r,z0]); return pts;
+}
+let chainMesh=null,lastChain='';
+function updateChain(){
+  const key=fmt(st.sG,2); if(key===lastChain)return; lastChain=key;
+  if(chainMesh){chainG.remove(chainMesh);chainMesh.geometry.dispose();}
+  const p=chainPts(18,18-st.sG,C.BY+2.6,C.ZS-2.2,1.9);
+  chainMesh=new THREE.Mesh(new THREE.TubeGeometry(new Poly(p.map(q=>V(...q))),120,0.6,6,false),M.cable); chainG.add(chainMesh);
+}
+
+/* ---------- hangers ---------- */
+const CLOTH=[0x3d5272,0x6b5a3d,0x6a3a4a,0x4e6650,0x7a6f5f,0x3f6670,0x5b4a6e,0x6e5a4a];
+const STORE=[0x3a434d,0x444e59,0x353e47,0x4b545e];
+let hangers=[], storeH=[], row=[];
+function makeHanger(parent,hc,gc){const m=mat(hc,.55,.35),mesh=new THREE.Mesh(hGeom,m),gm=mat(gc,0,.92,{emissive:0x000000}),gmesh=new THREE.Mesh(gGeom,gm);
+  gmesh.visible=P.clothes;mesh.add(gmesh);parent.add(mesh);return {mesh,mat:m,gmesh,gmat:gm,swingT:0,swingA:0,hit:null,wasHit:null};}
+function initHangers(){
+  hangers.forEach(h=>{h.mesh.parent&&h.mesh.parent.remove(h.mesh);h.mat.dispose();h.gmat.dispose();});
+  storeH.forEach(h=>{storeHG.remove(h.mesh);h.mat.dispose();h.gmat.dispose();});
+  hangers=ORDER.map((o,i)=>Object.assign(makeHanger(unitG,0xe9edf1,CLOTH[i]),{id:i+1,rod:o.rod,slot:o.slot,r:C.SLOTS[o.slot],state:'rod'}));
+  const n=P.nStore, zc=(C.ZR0+C.ZR1)/2-6;
+  storeH=[];for(let k=0;k<n;k++)storeH.push(Object.assign(makeHanger(storeHG,0xb7bfc8,STORE[k%4]),{id:'S'+(k+1),state:'row',store:true,ri:0,z:zc+(k-(n-1)/2)*C.PITCH}));
+  for(let k=0;k<3;k++)storeH.push(Object.assign(makeHanger(storeHG,0xb7bfc8,STORE[(k+2)%4]),{id:'H'+(k+1),state:'row',store:true,ri:1,z:290+k*C.PITCH}));
+  row=storeH.slice();
+  $('nTot').textContent=hangers.length;
+}
+function frameOf(h){
+  if(h.state==='rod'){const a=h.rod*Math.PI/2+Math.PI/2+st.phi,dx=Math.cos(a),dz=Math.sin(a);return {px:dx*h.r,pz:dz*h.r,y:RY(),X:[-dz,dx],Z:[-dx,-dz],uw:false};}
+  if(h.state==='carried')return {px:C.XR-st.sG-C.ARM,pz:st.cz+st.rdz,y:C.PEGY+st.zs,X:[-1,0],Z:[0,-1],uw:false};
+  if(h.state==='xfer'){const u=Math.min(1,Math.max(0,(G.RYc-RY())/(G.RYc-G.RYe)));return {px:(C.XR-C.ARM)*u,pz:st.cz+st.rdz,y:G.RYc+(C.PEGY-G.RYc)*u,X:[-1,0],Z:[0,-1],uw:false};}
+  if(h.state==='row')return {px:C.XROD,pz:h.z,y:rodTop(h.ri),X:[-1,0],Z:[0,-1],uw:true};
+  return {px:h.rodX-h.X[0]*h.relX,pz:h.rodZ-h.X[1]*h.relX,y:h.rodY-h.relY,X:h.X,Z:h.Z,uw:false};
+}
+
+/* ---------- row (store rod) physics ---------- */
+function sortRow(){row.sort((a,b)=>a.z-b.z);}
+function spreadLimit(zt,ri){
+  sortRow(); const K=C.RACKS[ri], it=row.filter(r=>r.ri===ri), L=it.filter(r=>r.z<zt), R=it.filter(r=>r.z>=zt);
+  const lo=K.z0+4.5+C.GAPMIN*Math.max(0,L.length-1), hi=K.z1-4.5-C.GAPMIN*Math.max(0,R.length-1);
+  const bl=L.length?zt-(lo+C.GT/2+0.15):zt-K.z0, br=R.length?(hi-C.GT/2-0.15)-zt:K.z1-zt;
+  return {bl,br,b:Math.min(bl,br),nL:L.length,nR:R.length};
+}
+function pushRow(zt,b,ri){
+  sortRow(); const it=row.filter(r=>r.ri===ri);
+  const L=it.filter(r=>r.z<zt).reverse(), R=it.filter(r=>r.z>=zt); let mL=0,mR=0;
+  let lim=zt-b-C.GT/2-0.15; L.forEach(it=>{if(it.z>lim){it.z=lim;mL++;}lim=it.z-C.GAPMIN;});
+  lim=zt+b+C.GT/2+0.15; R.forEach(it=>{if(it.z<lim){it.z=lim;mR++;}lim=it.z+C.GAPMIN;});
+  return [mL,mR];
+}
+
+/* ---------- state machine ---------- */
+const st={}; let playing=true, stepMode=false;
+const NUMK=['uz','rdz','phi','cz','lr','pk','pw','cy','cmis','btn','sG','zs','pd','bb'];
+function resetState(){
+  Object.assign(st,{phase:'dock',t:0,T:0,uz:C.U0,rdz:C.DOCK0,phi:Math.PI/6,cz:C.ZS,lr:0,pk:0,pw:0,cy:8.2,cmis:25*D2R,btn:0,
+    sG:0,zs:0,pd:0,bb:0.25,bT:0,k:0,done:0,interf:0,cur:null,zt:null,ri:0,nL:0,nR:0,mv:[0,0],f:{},cyc:[],tCyc:null,pWas:null});
+  NUMK.forEach(k=>st.f[k]=st[k]);
+  lastChain=''; logs=[]; log('로봇이 대기 행거로 접근 · 카메라가 AprilTag로 ±10 cm, ±10° 안에 정렬');
+}
+function setPhase(p){st.phase=p;st.t=0;st.f={};NUMK.forEach(k=>st.f[k]=st[k]); if(stepMode&&p!=='select'){playing=false;stepMode=false;syncPlay();}}
+function tw(key,to,dur){const u=ease(st.t/Math.max(dur,1e-3));st[key]=st.f[key]+(to-st.f[key])*u;return st.t>=dur;}
+function phiTarget(rod){return -rod*Math.PI/2;}
+const NEED=()=>C.GT/2+0.6;
+function settle(h,dt){if(!h||h.state!=='falling'||h.stage!=='settle')return;h.t+=dt;const u=ease(h.t/.5),a=G.phiT+(Math.PI/2-G.phiT)*u;
+  h.relX=G.rho*Math.cos(a);h.relY=G.cy+G.rho*Math.sin(a);
+  if(u>=1){h.state='row';h.z=h.rodZ+st.uz;h.ri=st.ri;row.push(h);h.swingT=0;h.swingA=0.02;st.done++;log(`옷걸이 #${h.id} 봉 꼭대기에 자리잡음 (낙하 없음)`,hookOK()?'ok':'bad');}}
+function computeTarget(k){
+  sortRow(); const main=storeH.filter(r=>r.ri===0), A=main[Math.min(TGT[k],main.length-2)], it=row.filter(r=>r.ri===0), i0=it.indexOf(A);
+  for(const j of [0,1,-1,2,-2,3,-3]){
+    const a=it[i0+j], b=it[i0+j+1]; if(!a||!b)continue;
+    const zt=(a.z+b.z)/2, S=spreadLimit(zt,0);
+    if(S.b>=NEED())return {zt,A:a,ri:0,over:false,near:j!==0,S};
+  }
+  const it1=row.filter(r=>r.ri===1), last=it1[it1.length-1], z1=last?last.z+C.GT/2+5.5:C.RACKS[1].z0+15;
+  return {zt:z1,A:last||null,ri:1,over:true,S:spreadLimit(z1,1)};
+}
+function sgn(v){return (v>0?'+':v<0?'−':'±')+fmt(Math.abs(v),1);}
+function update(dt){
+  st.t+=dt; st.T+=dt; const ph=st.phase, h=st.cur;
+  switch(ph){
+  case 'dock': if(tw('rdz',0,2.6)){log('U 베이로 진입 · 가이드 롤러가 베이스를 가운데로 · 범퍼 스위치 ON');setPhase('lift');}return;
+  case 'lift':{const t=st.t;
+    if(t<2.8){tw('lr',6,2.8);st.cy=Math.max(8.2,10.4+RY());}
+    else if(t<3.7){st.lr=6;st.cy=10.4;st.cmis=(25+65*ease((t-2.8)/0.9))*D2R;}
+    else if(t<4.0){st.cmis=0;const u=ease((t-3.7)/0.3);st.cy=10.4-1.2*u;st.btn=u;}
+    else{st.cy=9.2;st.btn=1;st.cmis=0;log('리프트 4 cm · 원뿔 핀 4개 안착, 행거 바퀴가 바닥에서 뜸 · 위쪽 컵이 엇갈린 이빨을 찾아 물림, 인덱스 잠금 풀림','ok');setPhase('select');}
+    return;}
+  case 'select':{
+    if(st.k>=ORDER.length){log(`${st.done}벌 재진열 끝 · 빈 대기 행거를 내려놓고 이탈`);setPhase('lower');return;}
+    st.cur=hangers[st.k]; st.tCyc=st.T; setPhase('rackRot'); return;}
+  case 'rackRot':{const to=phiTarget(h.rod),d=Math.abs(to-st.f.phi)/(Math.PI/2)*2.5; if(tw('phi',to,Math.max(d,0.4)))setPhase('cartIn');return;}
+  case 'cartIn':{const d=Math.abs(h.r-st.f.cz)/C.BELTV; if(tw('cz',h.r,Math.max(d,0.2))){log(`운반 핀이 대기봉 옆 고리 안으로 들어감 · 옷걸이 #${h.id} (봉 ${h.rod+1}, ${h.slot?'안쪽':'바깥'})`);setPhase('pickDown');}return;}
+  case 'pickDown':{const done=tw('pk',1,C.PICKD/1.5); st.cy=Math.max(8.2,9.2+RY()); st.btn=RY()<-0.6?0:1;
+    if(h.state==='rod'&&RY()<=G.RYc)h.state='xfer';
+    if(h.state==='xfer'&&RY()<=G.RYe){h.state='carried';log(`행거 ${C.PICKD} cm 내림 · 고리가 대기봉에서 운반 핀으로 옮겨 걸림 (무게로, 집지 않음)`);}
+    if(done)setPhase('slide');return;}
+  case 'slide':{const d=Math.abs(C.ZS-st.f.cz)/C.BELTV, done=tw('cz',C.ZS,d);
+    if(st.cz>C.RING+C.RODL+6)st.pk=Math.max(0,st.pk-dt*1.5/C.PICKD);
+    st.cy=Math.max(8.2,9.2+RY()); st.btn=RY()<-0.6?0:1;
+    if(done&&st.pk<=0){st.pk=0;st.cy=9.2;st.btn=1;setPhase('rfid');} return;}
+  case 'rfid': if(st.t>=0.6){const T=computeTarget(st.k);st.zt=T.zt;st.ri=T.ri;st.nL=T.S.nL;st.nR=T.S.nR;st.bT=Math.min(P.bopen,T.S.b);
+      if(T.S.b<NEED())log(`봉 여유 부족 (${fmt(T.S.b,1)} cm) · 그래도 시도`,'bad');
+      if(T.over)log(`RFID: #${h.id} → 진열 행거에 틈 낼 여유 없음 · 보류 행거로`,'warn');
+      else log(`RFID: #${h.id} → 진열 옷 ${T.A.id} 다음 자리`+(T.near?' (원래 자리는 여유 부족 · 가장 가까운 틈)':''),T.near?'warn':'');
+      setPhase('drive');}return;
+  case 'drive':{const to=st.zt-C.ZS,d=Math.abs(to-st.f.uz)/C.DRIVEV; if(tw('uz',to,Math.max(d,0.4))){log(`목표 틈 옆 정차 · 헤드 ToF 봉 높이 ${sgn(dyOf(st.ri))} cm · 카메라로 고리 사이 틈 확인`);setPhase('bDown');}return;}
+  case 'bDown':{const dist=(C.UPB+C.PDEP+C.PTOP)-(rodTop(st.ri)+C.PTOP); if(tw('pd',1,dist/C.DOWNV)){setPhase('spread');}return;}
+  case 'spread':{st.bb=Math.min(st.bT,st.bb+C.SPREADV*dt);const m=pushRow(st.zt,st.bb,st.ri);st.mv=[Math.max(st.mv[0],m[0]),Math.max(st.mv[1],m[1])];
+    if(st.bb>=st.bT-1e-6){log(`벌림 ±${fmt(st.bT,1)} cm · 왼쪽 ${st.mv[0]}벌, 오른쪽 ${st.mv[1]}벌이 봉을 따라 밀림`);setPhase('zSet');}return;}
+  case 'zSet': if(tw('zs',dyOf(st.ri),Math.max(0.3,Math.abs(dyOf(st.ri))/8))){setPhase('gOut');}return;
+  case 'gOut':{const done=tw('sG',G.sGmax,G.sGmax/C.CARV); if(done){log('봉이 고리 끝 아래로 들어와 목에 닿음 · 캐리지 정지 (이 자리가 맞는 위치)');setPhase('place1');}return;}
+  case 'place1':{const z0=dyOf(st.ri), a=tw('zs',z0-G.dC,0.9), b=tw('sG',G.sGmax-(G.xS-G.xT),0.9);
+    if(a&&b){const f=frameOf(h);
+      Object.assign(h,{X:f.X,Z:f.Z,rodX:f.px+f.X[0]*G.xS,rodZ:f.pz+f.X[1]*G.xS,rodY:G.yS+dyOf(st.ri),relX:G.xS,relY:G.cy+Math.sqrt(Math.max(0,G.rho*G.rho-G.xS*G.xS)),stage:'settle',state:'falling',t:0});
+      log(`셔틀 Z ${fmt(G.dC,1)} cm 내리며 ${fmt((G.xS-G.xT)*10,0)} mm 비킴 · 고리가 봉에 얹힘 (Z 서보 부하 감소로 감지)`);setPhase('place2');}
+    return;}
+  case 'place2':{settle(h,dt); const done=tw('zs',dyOf(st.ri)-G.dTot,0.8); if(done&&h.state==='row')setPhase('bUp');return;}
+  case 'bUp':{const dist=(C.UPB+C.PDEP+C.PTOP)-(rodTop(st.ri)+C.PTOP); if(tw('pd',0,dist/C.DOWNV)){setPhase('pegOut');}return;}
+  case 'pegOut': if(tw('pw',1,0.4)){log(`핀 빼기 서보가 운반 핀을 옆으로 ${C.PW} cm 뺌`);setPhase('gBack');}return;
+  case 'gBack':{const dur=G.sGmax/C.CARV, done=tw('sG',0,dur); tw('bb',0.25,dur*0.5);
+    if(st.t>dur*0.3)st.zs=st.f.zs*(1-ease((st.t-dur*0.3)/(dur*0.5)));
+    if(st.t>dur*0.85)st.pw=Math.max(0,1-(st.t-dur*0.85)/(dur*0.15));
+    if(done){st.zs=0;st.pw=0;st.bb=0.25;st.mv=[0,0];st.cyc.push(st.T-st.tCyc);st.k++;setPhase('select');}return;}
+  case 'lower':{tw('lr',0,2.8);st.cy=Math.max(8.2,9.2+RY());st.btn=RY()<-0.6?0:1;
+    if(st.t>=2.8){st.btn=0;st.cy=8.2;log('리프트 내림 · 행거가 다시 자기 바퀴로 섬 (브레이크는 잠긴 그대로)');setPhase('undock');}return;}
+  case 'undock': if(tw('rdz',C.DOCK0,1.8)){setPhase('done');log(`완료: ${st.done}벌 재진열`+(st.interf?` · 간섭 ${st.interf}회`:' · 간섭 없음'),st.interf?'warn':'ok');}return;
+  }
+}
+
+/* ---------- interference ---------- */
+function cartHit(wx,wy,wz){
+  const lx=wx-(C.XR-st.sG), ly=wy-(G.railY+st.zs), lz=wz-st.cz;
+  const inB=(x0,x1,y0,y1,z0,z1)=>lx>x0&&lx<x1&&ly>y0&&ly<y1&&lz>z0&&lz<z1;
+  const hy=C.PEGY-C.RP-G.railY, pw=C.PW*st.pw;
+  return inB(-3.1,1.3,-4.8,3.7,-4.5,4.5)||inB(-C.ARM,-3.1,-0.5,0.5,C.PZ-0.5,C.PZ+0.5)||inB(-C.ARM-0.4,-C.ARM+0.4,0,hy,C.PZ-0.4,C.PZ+0.4)
+    ||inB(-C.ARM-C.RP,-C.ARM+C.RP,hy-C.RP,hy+C.RP,-2.4+pw,2+pw);
+}
+function wireHit(h){
+  const f=frameOf(h), ry=G.railY;
+  for(const p of hSamples){
+    const wx=f.px+f.X[0]*p.x, wz=f.pz+f.X[1]*p.x-st.rdz, wy=p.y;
+    if(Math.abs(wy-ry)<2.2&&Math.abs(wx-C.XR)<1.7&&wz>=C.Z0&&wz<=C.ZS-C.SEG/2)return '레일';
+    if(cartHit(wx,wy,wz))return '대차';
+  }
+  return null;
+}
+function boxOverlap(a,b){return a.x0<b.x1&&a.x1>b.x0&&a.y0<b.y1&&a.y1>b.y0&&a.z0<b.z1&&a.z1>b.z0;}
+function carriedHit(h){
+  const f=frameOf(h), zw=f.pz+st.uz;
+  const box={x0:f.px-C.GW/2,x1:f.px+C.GW/2,y0:f.y+G.Ny-P.lg,y1:f.y+G.Ny-2,z0:zw-C.GT/2,z1:zw+C.GT/2};
+  for(const r of row){const yb=rodTop(r.ri)+G.Ny-P.lg, yt=rodTop(r.ri)+G.Ny-2;if(boxOverlap(box,{x0:C.XROD-C.GW/2,x1:C.XROD+C.GW/2,y0:yb,y1:yt,z0:r.z-C.GT/2+0.2,z1:r.z+C.GT/2-0.2}))return '진열 옷 '+r.id;}
+  const ps=padSlabs(); for(const s of ps){if(boxOverlap(box,s))return '벌림판';}
+  for(const p of gSamples){const wx=f.px+f.X[0]*p[0]+f.Z[0]*p[2], wy=f.y+p[1], rz=f.pz+f.X[1]*p[0]+f.Z[1]*p[2]-st.rdz;
+    for(const o of OBS){if(wx>o.x0&&wx<o.x1&&wy>o.y0&&wy<o.y1&&rz>o.z0&&rz<o.z1)return o.n;}}
+  return null;
+}
+function rackHit(h){
+  const f=frameOf(h), drive=st.phase==='drive', yb=rodTop(0)+G.Ny-P.lg, yt=rodTop(0)+G.Ny-2;
+  for(const p of gSamples){
+    const wx=f.px+f.X[0]*p[0]+f.Z[0]*p[2], wy=f.y+p[1], wz=f.pz+f.X[1]*p[0]+f.Z[1]*p[2], rz=wz-st.rdz;
+    for(const o of OBS){if(wx>o.x0&&wx<o.x1&&wy>o.y0&&wy<o.y1&&rz>o.z0&&rz<o.z1)return o.n;}
+    if(wy<F)return '바닥';
+    if(drive&&wx<C.XROD+C.GW/2&&wy>yb&&wy<yt)for(const r of row){if(Math.abs(wz+st.uz-r.z)<C.GT/2)return '진열 옷 '+r.id;}
+  }
+  return null;
+}
+function padSlabs(){ // the two paddle plates as boxes (world z)
+  const top=padBridgeY(), bot=top-C.PTOP-C.PDEP, zt=C.ZS+st.uz, x0=C.XROD-C.LEG-C.LEGW/2, x1=C.XROD+C.LEG+C.LEGW/2;
+  return [-1,1].map(s=>{const za=zt+s*st.bb, zb=za+s*0.25;return {x0,x1,y0:bot,y1:top,z0:Math.min(za,zb),z1:Math.max(za,zb)};});
+}
+function paddleHit(){
+  if(st.pd<0.02)return null; const ps=padSlabs();
+  for(const r of row){const yb=rodTop(r.ri)+G.Ny-P.lg, yt=rodTop(r.ri)+G.Ny-2, hz=C.GT/2-0.45;
+    const b={x0:C.XROD-C.GW/2,x1:C.XROD+C.GW/2,y0:yb,y1:yt,z0:r.z-hz,z1:r.z+hz};
+    for(const s of ps){if(boxOverlap(b,s))return '벌림판 ↔ 진열 옷 '+r.id;}}
+  return null;
+}
+function checkInterference(){
+  let any=null;
+  for(const h of hangers){
+    let hit=null;
+    if(h.state==='rod'){hit=wireHit(h)||rackHit(h);}
+    else if(h.state==='carried')hit=carriedHit(h);
+    h.hit=hit;
+    if(hit&&hit!==h.wasHit){st.interf++;log(`간섭: 옷걸이 #${h.id} ↔ ${hit}`,'bad');}
+    h.wasHit=hit; if(hit)any=hit;
+  }
+  let pg=null; const pxp=C.XR-st.sG-C.ARM, pyp=C.PEGY+st.zs-C.RP;
+  if(st.pw<0.5&&['gOut','place1','place2','bUp'].includes(st.phase)){if(Math.hypot(pxp-C.XROD,pyp-(G.yS+dyOf(st.ri)))<C.RP+P.dd/2-0.01)pg='운반 핀 ↔ 진열봉';}
+  if(['cartIn','pickDown'].includes(st.phase)&&st.cz>C.RING&&st.cz<C.RING+C.RODL+2){if(Math.hypot(pxp,pyp-(RY()-P.dw/2))<C.RP+P.dw/2-0.01)pg='운반 핀 ↔ 대기봉';}
+  if(pg&&pg!==st.gWas){st.interf++;log('간섭: '+pg,'bad');} st.gWas=pg; if(pg)any=pg;
+  const ph=paddleHit(); if(ph&&ph!==st.pWas){st.interf++;log('간섭: '+ph,'bad');} st.pWas=ph; if(ph)any=ph;
+  const b=$('badge'); b.hidden=!any; if(any)b.textContent='간섭 감지 · '+any;
+}
+
+/* ---------- robot centre of gravity incl. beam, head and carriage (rack not counted) ---------- */
+function cogCalc(){
+  const zc=(C.ZF+C.ZBK)/2, z=C.ZS;
+  const L=[[18,0,F+20,zc],[12,16,F+30,zc],[12,0,(F+C.YTOP)/2,zc],[4,0,C.YTOP,zc],[3,18,F+42,zc],[3,0,0,30],
+    [6,0,F+9,(C.ZF+C.BAYZ)/2],[3.5,0,F+8,10],[1.5,(C.BX1+C.XROD-6)/2,C.BY,z],[1.6,C.XROD,C.BY-12,z],[1.2,C.XR-st.sG,C.BY,z],[1.0,C.XR-st.sG,G.railY+st.zs,z]];
+  if(st.cur&&st.cur.state==='carried'){const f=frameOf(st.cur);L.push([1.5,f.px,G.Ny-P.lg*0.35,f.pz]);}
+  const rackM=21+1.5*hangers.filter(h=>h.state==='rod').length; if(RY()>-1.5)L.push([rackM,0,F+70,-st.rdz]);
+  let m=0,x=0,y=0,zz=0;L.forEach(([a,b,c,d])=>{m+=a;x+=a*b;y+=a*c;zz+=a*d;});x/=m;y/=m;zz/=m;
+  const margin=Math.min(x+C.WX,C.WX-x), h=y-F, mz=Math.min(zz-(C.BAYZ+6),C.WZ1-zz);
+  return {m,x,y,z:zz,margin,h,mz,rackM};
+}
+
+const _q=new THREE.Quaternion(), _m=new THREE.Matrix4();
+function placeOne(h,dt){
+  const f=frameOf(h);
+  let px=f.px,pz=f.pz; if(f.uw&&h.mesh.parent===unitG){pz-=st.uz;} if(!f.uw&&h.mesh.parent===storeHG){pz+=st.uz;}
+  h.mesh.position.set(px,f.y,pz);
+  _m.makeBasis(V(f.X[0],0,f.X[1]),UP,V(f.Z[0],0,f.Z[1])); h.mesh.quaternion.setFromRotationMatrix(_m);
+  if(h.state==='row'&&h.swingA){h.swingT+=dt;const a=h.swingA*Math.exp(-h.swingT/1.4)*Math.sin(2*Math.PI*h.swingT/.9);_q.setFromAxisAngle(ZAX,a);h.mesh.quaternion.multiply(_q);}
+  if(!h.store){h.mat.color.setHex(h.hit?0xff4d8d:0xe9edf1);h.gmat.emissive.setHex(h.hit?0x7a1240:0x000000);}
+  h.gmesh.visible=P.clothes;
+}
+function placeHangers(dt){hangers.forEach(h=>placeOne(h,dt));storeH.forEach(h=>placeOne(h,dt));}
+
+/* ---------- per-frame poses ---------- */
+function poseAll(){
+  unitG.position.z=st.uz; robotG.position.z=st.rdz; carousel.rotation.y=-st.phi;
+  rackG.position.y=RY(); liftG.position.y=st.lr-C.PICKD*st.pk;
+  coup.position.y=st.cy; coup.rotation.y=-st.phi+st.cmis;
+  const sh0=st.cy+1.6, shL=Math.max(0.01,15-sh0); coupShaft.scale.y=shL; coupShaft.position.y=sh0+shL/2;
+  btnMesh.position.y=8.6-0.5*st.btn;
+  // carriage
+  const s=st.sG;
+  cart.position.set(C.XR-s,G.railY+st.zs,st.cz);
+  pegG.position.z=C.PW*st.pw; pegSv.position.set(C.XR-s+2.6,G.railY+st.zs+5,C.ZS+5.6);
+  dogPin.position.z=s>0.01?C.ZS:st.cz;
+  // carriage on the fixed beam + Z guide
+  carM.position.x=C.XR-s;
+  const segY=G.railY+st.zs, gTop=C.BY-3, gBot=G.railY-7, gl=gTop-gBot;
+  guideM.scale.y=gl; guideM.position.set(C.XR-s,(gTop+gBot)/2,C.ZS+6.6);
+  zBrk.position.set(C.XR-s,segY,C.ZS+5.6); zServo.position.x=C.XR-s;
+  segM.position.set(C.XR-s,segY,C.ZS);
+  // spreader paddles
+  const by=padBridgeY(); padG.position.set(C.XROD,by,C.ZS);
+  bridgeM.scale.z=2*st.bb+1.2;
+  pads2.forEach(g=>{g.position.z=g.userData.s*(st.bb+0.15);});
+  updateChain();
+}
+
+/* ---------- 2D hook section ---------- */
+function drawHook(){
+  const cv=$('hookCv'), g=cv.getContext('2d'), Wd=cv.width, sc=Wd/9.5, ox=Wd*0.42, oy=Wd*0.30;
+  const X=x=>ox+x*sc, Y=y=>oy-y*sc;
+  g.clearRect(0,0,Wd,Wd); g.lineCap='round'; g.lineJoin='round';
+  const pts=hookPts(); g.strokeStyle='#eef1f4'; g.lineWidth=Math.max(2,0.34*sc);
+  g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(X(p.x),Y(p.y)):g.moveTo(X(p.x),Y(p.y)));
+  g.lineTo(X(0),Y(G.Ny)); g.lineTo(X(2.4),Y(G.Ny-2.06)); g.moveTo(X(0),Y(G.Ny)); g.lineTo(X(-2.4),Y(G.Ny-2.06)); g.stroke();
+  g.fillStyle='rgba(76,118,255,.85)'; g.beginPath(); g.arc(X(0),Y(-C.RP),C.RP*sc,0,7); g.fill();
+  g.fillStyle=hookOK()?'#55c46f':'#ff4d8d'; g.beginPath(); g.arc(X(G.xT),Y(G.yr),G.rr*sc,0,7); g.fill();
+  g.strokeStyle='rgba(85,196,111,.55)'; g.setLineDash([3,3]); g.lineWidth=1.2;
+  g.beginPath(); g.arc(X(0),Y(-G.rr),G.rr*sc,0,7); g.stroke(); g.setLineDash([]);
+  g.strokeStyle='#ffb070'; g.lineWidth=1.5; g.beginPath(); g.moveTo(X(4.2),Y(G.yr)); g.lineTo(X(G.xT+G.rr+0.6),Y(G.yr)); g.stroke();
+  g.fillStyle='#8692a0'; g.font='11px "JetBrains Mono", monospace'; g.fillText('봉이 오는 쪽 →',96,Y(G.yr)-10); g.fillText('파랑: 운반 핀 · 목에 닿은 순간',6,Wd-22); g.fillStyle='rgba(85,196,111,.8)'; g.fillText('점선: 걸린 뒤',6,Wd-8);
+}
+
+/* ---------- UI ---------- */
+let logs=[];
+function log(msg,kind){logs.unshift({msg,kind:kind||''});logs=logs.slice(0,10);renderLog();}
+function renderLog(){const ul=$('log');ul.innerHTML='';if(!logs.length){const li=document.createElement('li');li.textContent='아직 기록 없음';ul.appendChild(li);return;}
+  logs.forEach(l=>{const li=document.createElement('li');li.className=l.kind;li.textContent=l.msg;ul.appendChild(li);});}
+const STEP_OF={dock:0,lift:1,rackRot:2,cartIn:2,pickDown:3,slide:4,rfid:4,drive:5,bDown:6,spread:6,zSet:7,gOut:7,place1:8,place2:8,bUp:9,pegOut:9,gBack:9,lower:10,undock:10};
+function phaseText(){
+  const p=st.phase,h=st.cur;
+  const T={dock:['U 베이로 진입','행거는 브레이크가 잠긴 채 · 가이드 롤러와 범퍼가 위치를 맞춤'],
+    lift:['리프트',st.lr<2?'레일이 러그 아래로 올라옴':'레일이 행거를 4 cm 들어 원뿔 핀에 앉히고, 행거 위끝이 스프링 컵에 물림'],
+    rackRot:['대기 행거 회전',h?`봉 ${h.rod+1}이 로봇 쪽을 향하게 · 대차는 레일 끝에서 대기`:''],
+    cartIn:['대차 들어감',h?`총알 끝 운반 핀이 대기봉 옆 1.5 cm, 옷걸이 #${h.id} 고리 안으로`:''],
+    pickDown:['집기',h&&h.state==='rod'?'리프트가 행거를 내림 · 고리가 핀에 닿기 직전':'고리가 핀에 걸려 옆으로 옮겨 앉음 · 대기봉은 고리 안에서 떨어짐'],
+    slide:['스테이션으로','고리가 대기봉 끝으로 빠지고, 대차가 캐리지의 레일 조각 위로 · 행거는 다시 올라감'],
+    rfid:['RFID 확인','스테이션 옆 안테나가 태그를 읽고 넣을 자리를 정함'],
+    drive:['목표 틈으로 주행','통로를 따라 이동 · 빔은 진열봉 위, 벌림판은 올린 상태 (인터록)'],
+    bDown:['벌림판 내림','닫힌 판 2장(두께 6 mm)이 목표 고리 사이로 내려가 봉을 걸터앉음'],
+    spread:['벌림',`양옆 옷을 봉을 따라 ${fmt(st.bb,1)} cm씩 밀어 틈 ${fmt(2*st.bb,1)} cm`],
+    zSet:['셔틀 Z 맞춤',`헤드 ToF로 잰 봉 높이 ${sgn(dyOf(st.ri))} cm에 맞춰 대차 높이 조정`],
+    gOut:['캐리지 전개','봉이 고리 끝 아래로 들어와 목에 닿을 때까지 · 25 cm/s'],
+    place1:['얹기','셔틀 Z를 내리며 3 mm 비킴 · 고리 안쪽이 봉에 닿음'],
+    place2:['얹기',h&&h.state==='falling'?'고리가 봉 꼭대기로 미끄러져 자리잡음 · 핀은 봉 옆으로 내려감':'핀이 봉 아래까지 내려감'],
+    bUp:['벌림판 올림','판이 위로 빠짐 · 새 옷과 옆 옷은 그대로'],
+    pegOut:['핀 빼기','캐리지의 서보가 푸시로드를 밀어 핀을 봉 방향으로 2.8 cm 뺌'],
+    gBack:['캐리지 복귀','핀은 원위치에서 스프링으로 다시 나옴 · 셔틀 Z 0으로'],
+    lower:['리프트 내림','행거가 다시 자기 바퀴로 섬 · 인덱스 잠금이 걸림'],undock:['후진 이탈','빈 대기 행거를 두고 떠남'],
+    done:['완료',`${st.done}벌 재진열`],select:['다음 옷','']};
+  return T[p]||['',''];
+}
+const stepsEls=[...document.querySelectorAll('#steps li')];
+let lastHud=0;
+function updateHud(now){
+  if(now-lastHud<90)return; lastHud=now;
+  const [t,s]=phaseText(), i=STEP_OF[st.phase];
+  $('hPh').textContent=t; $('hSub').textContent=s; $('hN').textContent=i!==undefined?String(i+1):'';
+  stepsEls.forEach((li,k)=>li.classList.toggle('on',k===i));
+  $('nDone').textContent=st.done; $('nG').textContent=fmt(st.sG,0);
+  $('nGap').textContent=st.pd>0.5?fmt(2*st.bb,1)+' cm':'–';
+  $('nPushed').textContent=st.pd>0.5&&st.bb>0.5?`${st.mv[0]} · ${st.mv[1]}벌`:'–';
+  $('nCyc').textContent=st.cyc.length?fmt(st.cyc.reduce((a,b)=>a+b,0)/st.cyc.length,0)+' 초':'–';
+  renderChecks();
+}
+function cls(v,warnBelow){return v<=0?'bad':v<warnBelow?'warn':'ok';}
+let checksKey='';
+function renderChecks(){
+  const c=st.cog||cogCalc(), rows=[], b=P.bopen;
+  const E=70000, Ib=(40**4-36**4)/12;
+  const defl=(Pn,a,L)=>Pn*a*a*(3*L-a)/(6*E*Ib); const Lb=(-C.HO+2.5-(C.XROD-6))*10;
+  const dBeam=defl(1.6*9.81,(-C.HO+2.5-C.XROD)*10,Lb)+defl(3.7*9.81,(-C.HO+2.5-(C.XR-G.sGmax))*10,Lb);
+  const mainR=row.filter(r=>r.ri===0).sort((a,b)=>a.z-b.z), nMain=mainR.length;
+  const mvL=st.mv[0]||Math.ceil(nMain/2), mvR=st.mv[1]||Math.floor(nMain/2), FL=mvL*3.5, FR=mvR*3.5, Tsp=(FL+FR)*0.006/2/0.9, net=Math.abs(FL-FR);
+  const rob=(()=>{const s0=st.sG;st.sG=G.sGmax;const r=cogCalc();st.sG=s0;return r;})();
+  const Irack=hangers.filter(h=>h.state==='rod').reduce((a,h)=>a+1.5*(h.r/100)**2,0)+0.2, Trot=Irack*(4*Math.PI/2/2.5**2)+0.5;
+  const rackPull=(20*9.81*0.30)/(20*1.6);
+  const slackL=mainR.length?mainR[0].z-(C.ZR0+4.5):0, slackR=mainR.length?(C.ZR1-4.5)-mainR[mainR.length-1].z:0, nOver=row.filter(r=>r.ri===1&&!r.store).length;
+  const cap=Math.floor((C.ZR1-C.ZR0-9)/C.GAPMIN)+1, nLim=n=>Math.floor((C.ZR1-C.ZR0-9-(C.GT+0.3)-n)/C.GAPMIN)+2;
+  const prot=-(C.XROD-6)-C.HO, hBeam=(C.BY+2-F)/100;
+  rows.push(['h','모터 · 배선']);
+  rows.push(['모터 수 (바퀴 제외, 리프트 포함)','8개 · v4 4개 · v3 10개','ok']);
+  rows.push(['옷걸이 잡는 방식','운반 핀에 고리를 걺 (마찰 클립 없음)','ok']);
+  rows.push(['행거 결합 · 잠금 장치','들어 싣기 · 원뿔 핀 + 무게 (래치 없음)','ok']);
+  rows.push(['늘어나는 붐 · 움직이는 케이블 체인','없음 · 1개','ok']);
+  rows.push(['h','간섭 · 삽입']);
+  rows.push(['대기 행거·대차·진열 옷·벌림판 간섭',st.interf?`${st.interf}회 발생`:'없음',st.interf?'bad':'ok']);
+  rows.push(['진열봉 옷 / 최대 수용 (8.3 cm로 붙었을 때)',`${nMain} / ${cap}벌`,cls(cap-nMain,2)]);
+  rows.push(['새 옷을 더 넣을 수 있는 봉 위 옷 수 (이상적 배치)',`약 ${nLim(2*NEED())}벌 · v4 약 20벌`,'ok']);
+  rows.push(['여유 부족으로 보류 행거에 건 옷',`${nOver}벌`,nOver?'warn':'ok']);
+  rows.push(['봉 양 끝 남은 여유',`${fmt(slackL,0)} · ${fmt(slackR,0)} cm`,cls(Math.min(slackL,slackR),3)]);
+  rows.push(['벌림 틈 − 옷 두께 (양쪽 합)',`${fmt(2*b-C.GT,1)} cm`,cls(2*b-C.GT,1)]);
+  rows.push(['옆 옷을 미는 거리 (한쪽) · v4',`${fmt(b-0.3,1)} cm · v4 9.2 + 옆걸음 14`,'ok']);
+  rows.push(['봉 뒤로 필요한 빈 공간','없음 · 벽 행거 가능','ok']);
+  rows.push(['빔 왼쪽 돌출 · 높이',`${fmt(prot,0)} cm · 바닥에서 ${fmt(hBeam,2)} m`,'warn']);
+  rows.push(['올린 벌림판 ↔ 진열 옷 고리 (주행 중)',`${fmt(C.UPB-(Math.max(rodTop(0),rodTop(1))+0.17),1)} cm`,cls(C.UPB-(Math.max(rodTop(0),rodTop(1))+0.17),2)]);
+  rows.push(['대기 행거 회전 반경 / 진열 옷까지',`${fmt(G.rackR,1)} / ${fmt(-(C.XROD+C.GW/2),0)} cm`,cls(-(C.XROD+C.GW/2)-G.rackR,3)]);
+  rows.push(['필요 통로 폭 (대기 행거 지름 + 여유)',`${fmt(2*G.rackR+10,0)} cm`,2*G.rackR+10>120?'warn':'ok']);
+  rows.push(['옷 밑단 ↔ 섀시 윗면 (셔틀 Z 최저)',`${fmt(G.hemClear,1)} cm`,cls(G.hemClear,3)]);
+  rows.push(['h','고리 걸림']);
+  rows.push(['고리 입구 폭 / 봉 지름',`${fmt(G.open*10,1)} / ${fmt(P.dd*10,0)} mm`,cls(G.side,2)]);
+  rows.push(['입구 한쪽 여유',`${fmt(G.side,1)} mm`,cls(G.side,2)]);
+  const pinRod=(Math.hypot(C.XR-C.ARM,(C.PEGY-C.RP)-(-P.dw/2))-C.RP-P.dw/2)*10;
+  const pinPass=(G.xS-C.RP-P.dd/2)*10;
+  rows.push(['봉 아래 어깨선 여유',`${fmt(G.shMargin,1)} mm`,cls(G.shMargin,3)]);
+  rows.push(['봉 높이 허용 폭 (고리 끝 아래 ~ 목 끝)',`${fmt(G.win,0)} mm`,cls(G.win,15)]);
+  rows.push(['좌우 위치','봉이 목에 닿는 자리 = 정위치','ok']);
+  rows.push(['운반 핀 ↔ 대기봉 (들어갈 때)',`${fmt(pinRod,1)} mm · 총알 끝으로 보정`,cls(pinRod,2)]);
+  rows.push(['얹을 때 핀이 봉 옆을 지나는 틈',`${fmt(pinPass,1)} mm`,cls(pinPass,1)]);
+  rows.push(['내려놓기 (낙하)','0 mm','ok']);
+  rows.push(['대기봉 끼움 여유',G.fit>0?`${fmt(G.fit,1)} mm`:'안 들어감',cls(G.fit,3)]);
+  rows.push(['진열봉 높이 차 → 셔틀 Z 보정 (±4 cm)',`진열 ${sgn(dyOf(0))} · 보류 ${sgn(dyOf(1))} cm`,'ok']);
+  rows.push(['셔틀 Z 행정',`+4 ~ −${fmt(4+G.dTot,0)} cm`,'ok']);
+  rows.push(['h','대기 행거 결합']);
+  const Flift=c.rackM*9.81/0.85;
+  rows.push(['리프트 하중 / 액추에이터',`${fmt(Flift,0)} / 1000 N`,Flift>600?'warn':'ok']);
+  rows.push(['행거 위치 정밀도 (원뿔 핀)','±1 mm','ok']);
+  rows.push(['들어 올린 행거 바퀴 ↔ 바닥 (집을 때 −3)',`${fmt(RY()+4,1)} cm`,RY()+4>0.5?'ok':'warn']);
+  rows.push(['지금 무게중심 ↔ 앞 캐스터선 / 뒷바퀴선 (앞뒤)',`${fmt(c.mz,1)} cm`,cls(c.mz,10)]);
+  rows.push(['행거를 실은 채 제자리 회전 지름',`약 ${fmt(2*Math.hypot(0,C.WZ0+G.rackR)/100,1)} m · 통로에선 직진만`,'warn']);
+  rows.push(['h','구조 · 힘']);
+  rows.push(['빔 끝 처짐 (헤드 1.6 + 캐리지·옷 3.7 kg)',`${fmt(dBeam,2)} mm`,dBeam>1?'warn':'ok']);
+  rows.push([`벌림 힘 (밀린 옷 ${mvL} · ${mvR}벌 × 3.5 N)`,`${fmt(FL,0)} · ${fmt(FR,0)} N`,'ok']);
+  rows.push(['벌림 서보 토크 (2:1 기어) / XL430 연속',`${fmt(Tsp,2)} / 0.47 N·m`,Tsp>0.47?'bad':Tsp>0.35?'warn':'ok']);
+  rows.push(['진열 행거를 뒤로 미는 힘 · 봉 방향 남는 힘',`0 · ${fmt(net,0)} N`,'ok']);
+  rows.push(['대기 행거 회전 필요 토크 / 8:1 연속',`${fmt(Trot,1)} / 3.4 N·m`,Trot>3.4?'bad':Trot>2.5?'warn':'ok']);
+  rows.push(['캐리지 다 폈을 때 무게중심 ↔ 왼쪽 바퀴선',`${fmt(rob.margin,1)} cm`,cls(rob.margin,8)]);
+  rows.push(['지금 무게중심 ↔ 가까운 바퀴선',`${fmt(c.margin,1)} cm`,cls(c.margin,8)]);
+  rows.push(['대기 행거: 20 N으로 당길 때 (20 kg 베이스)',`안전율 ${fmt(rackPull,2)}`,rackPull<1.5?'warn':'ok']);
+  rows.push(['h','전기']);
+  rows.push(['7S 만충 / 스텝 드라이버 입력 범위','29.4 / 18~50 V','ok']);
+  rows.push(['24V 순간 / BMS 연속','약 16 / 20 A','ok']);
+  rows.push(['평균 전력 · 240 Wh 운전 시간','약 60 W · 3.2 h','ok']);
+  rows.push(['12V 서보 (XL430 5개, 최악)','약 4.2 / 10 A','ok']);
+  rows.push(['리프트 (24 V, 3초)','약 3 / 4 A 제한','ok']);
+  const key=JSON.stringify(rows); if(key===checksKey)return; checksKey=key;
+  const el=$('checks'); el.innerHTML='';
+  rows.forEach(r=>{if(r[0]==='h'){const h=document.createElement('h3');h.textContent=r[1];el.append(h);return;}
+    const a=document.createElement('span');a.className='l';a.textContent=r[0];const b=document.createElement('span');b.className='v '+(r[2]||'');b.textContent=r[1];el.append(a,b);});
+  $('formula').textContent='빔 처짐 = Σ P·a²(3L − a)/6EI (40×40×2 외팔보, E 70 GPa, 왼쪽 기둥에서 잰 거리). 벌림 토크 = (왼쪽 힘 + 오른쪽 힘) × 피니언 6 mm ÷ 2:1 기어 ÷ 효율 0.9. 대기 행거 회전 토크 = 관성(옷 1.5 kg × 반지름² + 구조 0.2) × 90°를 2.5초에 도는 각가속도 + 베어링 0.5 N·m. 밀리는 옷 한 벌은 봉 위 마찰 약 3.5 N.';
+}
+function updateHookText(){
+  $('hookTxt').textContent=`고리는 지름 ${fmt(C.RP*20,0)} mm 운반 핀에 걸려 있어요. 캐리지가 나가면 봉이 고리 끝 아래 ${fmt(P.gap*10,0)} mm로 들어와 목에 닿고, 셔틀 Z가 ${fmt(G.dC,1)} cm 내려가며 ${fmt((G.xS-G.xT)*10,0)} mm 비키면 고리 안쪽이 봉에 얹혀요. 핀은 봉 옆 ${fmt((G.xS-C.RP-G.rr)*10,1)} mm 틈으로 봉 아래까지 내려간 뒤 옆으로 빠져요. 봉 높이는 고리 끝 아래부터 목 끝까지 ${fmt(G.win,0)} mm 안이면 돼요. 고리 끝 방향은 대기봉의 방향 키 핀으로 맞춰요.`;
+  drawHook();
+}
+function syncLabels(){
+  $('lNs').textContent=$('sNs').value+'벌'; $('lBo').textContent=$('sBo').value+' cm';
+  $('lLg').textContent=$('sLg').value+' cm'; $('lRin').textContent=$('sRin').value+' mm'; $('lTip').textContent=$('sTip').value+'°';
+  $('lDd').textContent=$('sDd').value+' mm'; $('lGap').textContent=$('sGap').value+' mm'; $('lRdy').textContent=(+$('sRdy').value>0?'+':'')+$('sRdy').value+' cm';
+}
+function readParams(){P.nStore=+$('sNs').value;P.bopen=+$('sBo').value;P.lg=+$('sLg').value;P.rin=+$('sRin').value/20;P.tip=+$('sTip').value;P.dd=+$('sDd').value/10;P.gap=+$('sGap').value/10;P.rdy=+$('sRdy').value;}
+function rebuildAll(){
+  readParams();computeGeo();syncLabels();buildHangerGeom();buildRack();buildRobot();buildRail();buildCartPeg();buildBooms();buildStore();buildCables();
+  initHangers();resetState();poseAll();checksKey='';renderChecks();updateHookText();syncLabelVis();
+  cableG.visible=chainG.visible=P.cables;
+}
+['sNs','sBo','sLg','sRin','sTip','sDd','sGap','sRdy'].forEach(id=>$(id).addEventListener('input',rebuildAll));
+function seg(id,cb){const g=$(id);g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  g.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));cb(b.dataset.v);});}
+seg('speed',v=>{P.speed=+v;});
+function toggle(id,key,after){$(id).addEventListener('click',e=>{P[key]=!P[key];e.currentTarget.setAttribute('aria-pressed',String(P[key]));if(after)after();});}
+toggle('clothes','clothes'); toggle('cables','cables',()=>{cableG.visible=chainG.visible=P.cables;}); toggle('labels','labels');
+function syncPlay(){$('play').textContent=playing?'일시정지':'재생';}
+$('play').addEventListener('click',()=>{if(st.phase==='done'){rebuildAll();playing=true;}else playing=!playing;stepMode=false;syncPlay();});
+$('step').addEventListener('click',()=>{if(st.phase==='done')return;playing=true;stepMode=true;syncPlay();});
+$('reset').addEventListener('click',()=>{rebuildAll();});
+
+/* ---------- camera ---------- */
+let tween=null, follow=null; const _cw=V(0,0,0), _prev=V(0,0,0);
+function followTarget(k,out){if(k==='ins'){out.set(-Math.min(st.sG,G.sGmax)-10,-10,C.ZS+st.uz);}else{cart.getWorldPosition(out);}return out;}
+const FOFF={ins:V(-40,75,175),cart:V(60,30,52)};
+function views(){const u=st.uz;
+  return {iso:{p:[330,140,u+430],t:[-50,-60,u+90]},top:{p:[-40,780,u+100.01],t:[-40,-60,u+100]},front:{p:[-20,-20,u+620],t:[-20,-60,u+60]},
+    dock:{p:[-120,F+75,u-85],t:[0,F+12,u+5]},coup:{p:[58,42,70+u],t:[0,10,u]},head:{p:[-20,30,u+C.ZS+70],t:[C.XROD,-8,u+C.ZS]}};}
+function press(k){document.querySelectorAll('.views button[id^="v-"]').forEach(b=>b.setAttribute('aria-pressed',String(b.id==='v-'+k)));}
+function goView(k,instant){
+  press(k);
+  if(k==='ins'||k==='cart'){follow=k;followTarget(k,_cw);_prev.copy(_cw);tween={p0:camera.position.clone(),t0:controls.target.clone(),p1:_cw.clone().add(FOFF[k]),t1:_cw.clone(),t:0};return;}
+  follow=null; const v=views()[k];
+  if(instant){camera.position.set(...v.p);controls.target.set(...v.t);controls.update();return;}
+  tween={p0:camera.position.clone(),t0:controls.target.clone(),p1:V(...v.p),t1:V(...v.t),t:0};
+}
+['iso','top','front','ins','dock','coup','head','cart'].forEach(k=>$('v-'+k).addEventListener('click',()=>goView(k)));
+function resize(){const w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(view);
+
+/* ---------- loop ---------- */
+let last=performance.now(), lastRobotZ=null;
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  let sdt=0;
+  if(playing&&st.phase!=='done'){sdt=dt*P.speed;let rem=sdt;while(rem>1e-6){const d=Math.min(rem,.016);update(d);rem-=d;if(!playing)break;}}
+  poseAll();
+  const rz=st.uz+st.rdz; if(lastRobotZ!==null){const d=rz-lastRobotZ;wheels.forEach(w=>w.rotation.x+=d/7);} lastRobotZ=rz;
+  placeHangers(sdt); checkInterference();
+  st.cog=cogCalc(); cogMark.position.set(st.cog.x,st.cog.y,st.cog.z);
+  cogLine.geometry.setFromPoints([V(st.cog.x,st.cog.y,st.cog.z),V(st.cog.x,F+0.3,st.cog.z)]);
+  if(tween){tween.t=Math.min(1,tween.t+dt/.8);const e=ease(tween.t);
+    if(follow){followTarget(follow,_cw);tween.t1.copy(_cw);tween.p1.copy(_cw).add(FOFF[follow]);_prev.copy(_cw);}
+    camera.position.lerpVectors(tween.p0,tween.p1,e);controls.target.lerpVectors(tween.t0,tween.t1,e);if(tween.t>=1)tween=null;}
+  else if(follow){followTarget(follow,_cw);const d=_cw.clone().sub(_prev);camera.position.add(d);controls.target.add(d);_prev.copy(_cw);}
+  updateHud(now); updateLabelVis();
+  controls.update(); renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)playing=false;
+rebuildAll(); syncPlay(); goView('iso',true); resize(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

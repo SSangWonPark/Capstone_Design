@@ -1,0 +1,934 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>옷걸이 이송 시뮬레이터 · 그리퍼/벌림 변형</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 3D viewport fills the left like the sketch's blackboard; a narrow control column on the right, dropping below on phones */
+:root{
+  color-scheme: dark;
+  --bg:#0b0e11; --panel:#12171c; --raise:#1a2027; --line:#252e37;
+  --fg:#e3e7eb; --muted:#8692a0; --faint:#5a6571;
+  --rod:#9ba4ad; --rail:#e5c04a; --hanger:#eef1f4; --grip:#4c76ff; --dest:#55c46f;
+  --robot:#f08a3e; --drive:#e5484d; --cloth:#6f7f94;
+  --bad:#ff4d8d; --warn:#ffc04a; --ok:#55c46f;
+  --f-ui:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:13px;line-height:1.5}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 370px;height:100%}
+.view{position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--bg)}
+#c{display:block;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;left:14px;top:14px;max-width:calc(100% - 28px);background:rgba(11,14,17,.84);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;pointer-events:none}
+.hud .ph{font-weight:600;font-size:15px;display:flex;gap:8px;align-items:baseline}
+.hud .ph .n{font-family:var(--f-mono);font-size:12px;color:var(--grip)}
+.hud .sub{color:var(--muted);min-height:1.5em}
+.hud .nums{display:flex;flex-wrap:wrap;gap:2px 16px;margin-top:4px;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hud .nums b{color:var(--fg);font-weight:500}
+.badge{position:absolute;right:14px;top:14px;background:rgba(255,77,141,.14);border:1px solid var(--bad);color:var(--bad);border-radius:6px;padding:6px 10px;font-weight:600;max-width:40%}
+.views{position:absolute;left:14px;bottom:14px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 28px)}
+.hint{position:absolute;right:14px;bottom:16px;color:var(--faint);font-size:11.5px}
+.panel{border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:18px 18px 28px;display:flex;flex-direction:column;gap:22px}
+h1{margin:0;font-size:17px;font-weight:600;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:10px}
+h2{margin:0;font-size:11.5px;font-weight:500;color:var(--muted);letter-spacing:.04em}
+h3{margin:6px 0 0;font-size:11.5px;font-weight:500;color:var(--faint);letter-spacing:.04em;grid-column:1/-1}
+h3:first-child{margin-top:0}
+button{font:inherit;color:var(--fg);background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:#3b4753}
+button:focus-visible,input:focus-visible{outline:2px solid var(--grip);outline-offset:2px}
+button[aria-pressed="true"]{background:#1b2849;border-color:var(--grip);color:#fff}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.primary{background:var(--grip);border-color:var(--grip);color:#fff;font-weight:600;min-width:86px}
+.primary:hover{border-color:#7b9bff}
+.seg{display:flex}
+.seg button{flex:1;border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:6px 0 0 6px;margin-left:0}
+.seg button:last-child{border-radius:0 6px 6px 0}
+.seg button[aria-pressed="true"]{position:relative;z-index:1}
+.field{display:flex;flex-direction:column;gap:4px}
+.field .lab{display:flex;justify-content:space-between;gap:8px}
+.field .lab span:last-child{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--fg)}
+.field .lab span:first-child{color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--grip)}
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+ol.steps li{display:flex;gap:10px;align-items:baseline;padding:4px 8px;border-radius:6px;color:var(--muted)}
+ol.steps li .k{font-family:var(--f-mono);font-size:11.5px;width:14px;flex:none;color:var(--faint)}
+ol.steps li.on{background:#1b2849;color:#fff}
+ol.steps li.on .k{color:var(--grip)}
+ol.steps li.skip{opacity:.4;text-decoration:line-through}
+.checks{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:baseline}
+.checks .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.checks .l{color:var(--muted)}
+.v.ok{color:var(--ok)} .v.warn{color:var(--warn)} .v.bad{color:var(--bad)}
+.formula{color:var(--faint);font-size:11.5px;margin:0}
+.hookfig{display:flex;gap:12px;align-items:center}
+.hookfig canvas{flex:none;width:120px;height:120px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.hookfig p{margin:0;color:var(--muted);font-size:12px;min-width:0}
+ul.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+ul.log li.ok{color:#9fdcae} ul.log li.warn{color:var(--warn)} ul.log li.bad{color:var(--bad)}
+ul.legend{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+ul.legend li{display:flex;align-items:center;gap:8px}
+ul.legend i{width:18px;height:4px;border-radius:2px;flex:none}
+.note{color:var(--muted);font-size:12px;margin:0}
+.note b{color:var(--fg);font-weight:500}
+@media (max-width:820px){
+  html,body{height:auto}
+  .app{grid-template-columns:1fr;grid-template-rows:64vh auto;height:auto}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible;padding:18px 16px 28px}
+  .hud{font-size:12px;padding:8px 10px}
+  .hint{display:none}
+}
+</style>
+
+<div class="app">
+  <div class="view">
+    <canvas id="c" aria-label="옷걸이 이송 로봇 3D 시뮬레이션"></canvas>
+    <div class="hud" aria-live="polite">
+      <div class="ph"><span class="n" id="hN"></span><span id="hPh">준비</span></div>
+      <div class="sub" id="hSub"></div>
+      <div class="nums">
+        <span>이송 <b id="nDone">0</b>/<b id="nTot">6</b></span>
+        <span>옷걸이 회전 <b id="nYaw">–</b></span>
+        <span>대기 행거 <b id="nPhi">0°</b></span>
+        <span>그리퍼 <b id="nS">0.0</b> cm</span>
+      </div>
+    </div>
+    <div class="badge" id="badge" hidden>간섭 감지</div>
+    <div class="views" role="group" aria-label="시점">
+      <button id="v-iso" aria-pressed="true">3D</button>
+      <button id="v-top" aria-pressed="false">위에서 본 모습</button>
+      <button id="v-side" aria-pressed="false">측면도</button>
+      <button id="v-back" aria-pressed="false">벽 쪽에서</button>
+      <button id="v-drop" aria-pressed="false">걸림 부위 확대</button>
+      <button id="clothes" aria-pressed="true">옷 표시</button>
+    </div>
+    <div class="hint">드래그 회전 · 휠 확대 · 우클릭 이동</div>
+  </div>
+
+  <aside class="panel">
+    <header>
+      <h1>옷걸이 이송 시뮬레이터 · 그리퍼/벌림 변형</h1>
+      <p>로봇 본체 포함 동작 흐름 검증 · 길이 cm, 고리 치수 mm</p>
+    </header>
+
+    <section>
+      <div class="row">
+        <button class="primary" id="play">일시정지</button>
+        <button id="step">한 단계</button>
+        <button id="reset">처음부터</button>
+      </div>
+      <div class="field">
+        <div class="lab"><span>재생 속도</span></div>
+        <div class="seg" id="speed">
+          <button data-v="0.5" aria-pressed="false">0.5×</button>
+          <button data-v="1" aria-pressed="true">1×</button>
+          <button data-v="2" aria-pressed="false">2×</button>
+          <button data-v="4" aria-pressed="false">4×</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>진행 단계</h2>
+      <ol class="steps" id="steps">
+        <li><span class="k">1</span>로봇 도킹 · 견인부 체결, 기어 맞물림</li>
+        <li><span class="k">2</span>대기 행거를 끌고 목적지 앞으로 이동</li>
+        <li><span class="k">3</span>그리퍼가 다음 옷걸이 자리에서 펼침 대기</li>
+        <li><span class="k">4</span>대기 행거 회전 · 어댑터 달린 목이 집게 안으로</li>
+        <li><span class="k">5</span>걸쇠 닫힘 (C형 몸체가 목 어댑터 포획)</li>
+        <li><span class="k">6</span>결합 확인 · 어댑터 접촉 센서 ON</li>
+        <li><span class="k">7</span>먼저 가르기 (A 쟁기 신장 · B 벌림판 선행)</li>
+        <li><span class="k">8</span>직선 이송 · 통로 통과 · 꺾임 구간 90° 회전</li>
+        <li><span class="k">9</span>벌려진 틈으로 옷걸이 삽입</li>
+        <li><span class="k">10</span>집게 열림 · 낙하 걸림 · 벌림 장치 들어 올려 복귀</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>판정</h2>
+      <div class="checks" id="checks"></div>
+      <p class="formula" id="formula"></p>
+    </section>
+
+    <section>
+      <h2>고리 형상 · 해제 순간</h2>
+      <div class="hookfig">
+        <canvas id="hookCv" width="240" height="240" aria-label="해제 순간 고리와 목적지 봉의 단면"></canvas>
+        <p id="hookTxt"></p>
+      </div>
+    </section>
+
+    <section>
+      <h2>그리퍼 · 벌림 장치 (변형) <span style="color:var(--faint)">· 가로형 목적지에서만 벌림 동작</span></h2>
+      <div class="field">
+        <div class="lab"><span>벌림 장치 위치</span></div>
+        <div class="seg" id="split">
+          <button data-v="none" aria-pressed="false">없음(기준)</button>
+          <button data-v="A" aria-pressed="true">A 그리퍼 선단 신장</button>
+          <button data-v="B" aria-pressed="false">B 별도 캐리지</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lab"><span>봉에 걸려 있는 기존 옷</span><span id="lNd"></span></div>
+        <input type="range" id="sNd" min="0" max="14" step="1" value="8">
+      </div>
+      <div class="field">
+        <div class="lab"><span>기존 옷 간격(중심간)</span><span id="lPd"></span></div>
+        <input type="range" id="sPd" min="25" max="80" step="1" value="40">
+      </div>
+      <div class="field">
+        <div class="lab"><span>기존 옷 압축 두께</span><span id="lTd"></span></div>
+        <input type="range" id="sTd" min="15" max="50" step="1" value="25">
+      </div>
+      <div class="field">
+        <div class="lab"><span>옷걸이와 벌림판 사이 여유</span><span id="lClr"></span></div>
+        <input type="range" id="sClr" min="0" max="30" step="1" value="5">
+      </div>
+      <div class="field">
+        <div class="lab"><span>집게 펼침 각도</span><span id="lJaw"></span></div>
+        <input type="range" id="sJaw" min="30" max="90" step="1" value="85">
+      </div>
+      <p class="note">순서: 먼저 가르기 → 틈 확인 → 삽입. A: 그리퍼 선단 쟁기가 소형 슬라이드로 16cm 앞서 나가 기존 옷을 민 뒤 옷걸이가 들어감(옷걸이는 틈 밖 대기). B: 매대 위 별도 캐리지가 먼저 들어가 자리를 만든 뒤 대기. 둘 다 걸린 뒤 위로 들어 올려 복귀. 가르기는 레일이 봉 방향이라 쟁기로 밀어 모으는 모델입니다.</p>
+    </section>
+
+    <section>
+      <h2>설정 <span style="color:var(--faint)">· 바꾸면 처음부터 다시 시작</span></h2>
+      <div class="field">
+        <div class="lab"><span>목적지 행거</span></div>
+        <div class="seg" id="mode">
+          <button data-v="h" aria-pressed="true">가로형 (꺾인 후)</button>
+          <button data-v="w" aria-pressed="false">벽방향 (꺾이기 전)</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lab"><span>대기 행거 회전 방향</span></div>
+        <div class="seg" id="dir">
+          <button data-v="1" aria-pressed="true">화살표 방향</button>
+          <button data-v="-1" aria-pressed="false">반대 방향</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lab"><span>옷 길이 (어깨~밑단)</span><span id="lLg"></span></div>
+        <input type="range" id="sLg" min="50" max="125" step="1" value="80">
+      </div>
+      <div class="field">
+        <div class="lab"><span>옷걸이 고리 내경</span><span id="lRin"></span></div>
+        <input type="range" id="sRin" min="36" max="64" step="1" value="52">
+      </div>
+      <div class="field">
+        <div class="lab"><span>고리 끝 각도 (수평 기준, 아래쪽 −)</span><span id="lTip"></span></div>
+        <input type="range" id="sTip" min="-60" max="20" step="1" value="-10">
+      </div>
+      <div class="field">
+        <div class="lab"><span>목적지 봉 지름</span><span id="lDd"></span></div>
+        <input type="range" id="sDd" min="12" max="32" step="1" value="19">
+      </div>
+      <div class="field" id="fGap">
+        <div class="lab"><span>해제 시 고리 끝–봉 간격</span><span id="lGap"></span></div>
+        <input type="range" id="sGap" min="1" max="15" step="1" value="3">
+      </div>
+      <div class="field" id="fDrop" hidden>
+        <div class="lab"><span>벽방향 봉 낙하 높이 Δ</span><span id="lDrop"></span></div>
+        <input type="range" id="sDrop" min="0" max="40" step="1" value="10">
+      </div>
+      <div class="field">
+        <div class="lab"><span>대기봉 지름</span><span id="lDw"></span></div>
+        <input type="range" id="sDw" min="16" max="32" step="1" value="25">
+      </div>
+      <div class="field">
+        <div class="lab"><span>레일 앞 끝 위치 (회전 중심에서)</span><span id="lZ0"></span></div>
+        <input type="range" id="sZ0" min="35" max="100" step="1" value="55">
+      </div>
+    </section>
+
+    <section>
+      <h2>기록</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+
+    <section>
+      <h2>범례</h2>
+      <ul class="legend">
+        <li><i style="background:var(--robot)"></i>로봇 본체</li>
+        <li><i style="background:var(--drive)"></i>회전 구동부</li>
+        <li><i style="background:var(--rod)"></i>대기 행거</li>
+        <li><i style="background:var(--rail)"></i>그리퍼 레일</li>
+        <li><i style="background:var(--grip)"></i>그리퍼</li>
+        <li><i style="background:var(--dest)"></i>목적지 행거</li>
+        <li><i style="background:var(--hanger)"></i>옷걸이</li>
+        <li><i style="background:var(--cloth)"></i>옷</li>
+        <li><i style="background:#ff9f43"></i>벌림 장치(쟁기)</li>
+        <li><i style="background:#55c46f"></i>옷걸이 3D 어댑터</li>
+        <li><i style="background:var(--bad)"></i>간섭 · 불가</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>로봇 구조 (제안)</h2>
+      <p class="note"><b>문형 프레임</b>: 폭 72 · 안쪽 통로 62 · 깊이 54 · 높이 184. 옷이 로봇 안 통로를 그대로 통과하도록 앞뒤가 뚫려 있고, 옆판은 아래쪽 절반만 있음.</p>
+      <p class="note"><b>위치</b>: 로봇 앞면을 회전하는 옷이 쓸고 지나가는 원(반경 약 104) 밖에 둠. 레일 앞부분은 로봇에서 대기 행거 쪽으로 내민 외팔보. 봉이 레일 위를 지나가므로 이 구간은 위에서 매달 수 없음.</p>
+      <p class="note"><b>레일 지지</b>: 통로 안과 뒤쪽 꺾임 구간은 위쪽 보에서 매달고, 행거는 그리퍼 팔 반대쪽에 붙임. 옷과 고리는 모두 레일 아래나 팔 쪽에 있어서 지지대와 만나지 않음.</p>
+      <p class="note"><b>무게중심</b>: 배터리와 구동부를 바닥 섀시에 낮게 두고, 배터리는 옆으로 뻗은 레일 반대쪽(+x)에 치우치게 배치. 대기 행거는 바닥 높이의 견인 연결부로 끌어서 위쪽에 전도 하중이 걸리지 않게 함.</p>
+      <p class="note"><b>회전 구동</b>: 대기 행거 상단 허브 기어(28T, 회전체에 고정)에 로봇 상단 팔 끝의 모터 피니언(8T)이 도킹하면서 반경 방향으로 맞물림. 이동 중에는 모터 브레이크로 회전을 잠금.</p>
+    </section>
+
+    <section>
+      <h2>가정 치수 · 질량</h2>
+      <p class="note">대기 봉 높이 <b>160</b>, 원형 반지름 <b>30</b>, 봉 6개 길이 <b>70·50·60·40·65·45</b>, 봉마다 옷 1벌(봉 끝 4 안쪽). 옷 폭 <b>48</b> · 두께 <b>8</b>, 옷걸이 폭 <b>42</b>. 그리퍼 팔 <b>12</b> 고정, 레일 꺾임 반경 <b>25</b>. 가로형 봉은 양 끝이 막혀 있고 벽에서 <b>30</b>, 옷 간격 <b>9</b>.</p>
+      <p class="note">질량: 섀시 <b>18</b> kg, 배터리 <b>12</b> kg, 프레임 <b>9</b> kg, 상단 팔+모터 <b>3.5</b> kg, 레일(앞·통로) <b>2</b> kg, 뒤쪽 레일+보 <b>3</b> kg, 그리퍼 <b>0.8</b> kg, 옷+옷걸이 <b>1.2</b> kg. 바퀴 간격 <b>60 × 38</b>.</p>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const F=-160; // floor height relative to waiting-rod top
+const C={RC:30,LENS:[70,50,60,40,65,45],ARM:12,XR:-12,RB:25,ZB:166,LC:78,WIRE:0.17,NECK:4.5,
+  ZF:104,ZBK:158,HO:36,HI:31,YTOP:24,GW:48,GT:8,SP:9,DOCK0:55,TRAVEL:140,RG:14,RP:4,WX:30,WZ0:112,WZ1:150};
+const P={rin:2.6,tip:-10,dd:1.9,gap:0.3,drop:1.0,dw:2.5,z0:55,lg:80,mode:'h',dir:1,speed:1,clothes:true,split:'A',nd:8,pd:4,td:2.5,clr:0.5,jaw:85};
+const V=(x,y,z)=>new THREE.Vector3(x,y,z), UP=V(0,1,0), ZAX=V(0,0,1);
+const ease=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+const fmt=(n,d)=>n.toFixed(d===undefined?1:d);
+const $=id=>document.getElementById(id);
+const D2R=Math.PI/180;
+
+/* ---------- derived hook / release geometry (hanger local: origin = inner top of hook, X across, Y up) ---------- */
+let G={};
+function computeGeo(){
+  const W=C.WIRE, rin=P.rin, rc=rin+W, cy=-rin, th=P.tip*D2R, rr=P.dd/2, rho=rin-rr;
+  const tipX=rc*Math.cos(th), tipYb=cy+rc*Math.sin(th)-W;
+  const neckTop=cy-rc, Ny=neckTop-C.NECK;
+  const open=tipX-2*W;
+  let delta,yr;
+  if(P.mode==='h'){delta=tipX/2;yr=tipYb-P.gap-rr;}else{delta=0;yr=-rr-P.drop;}
+  const yc=cy+Math.sqrt(Math.max(0,rho*rho-delta*delta));
+  const phic=Math.acos(Math.min(1,delta/Math.max(rho,1e-6)));
+  const railY=neckTop-C.NECK/2;
+  const side=(open-P.dd)/2*10;
+  const shoulderY=Ny-18*(delta+rr)/21, shMargin=(yr-rr-shoulderY)*10;
+  const fingerMargin=(yr-rr-(railY+1.1))*10;
+  const dropTotal=-(yr+rr)*10;
+  const rmax=Math.max(...C.LENS)+C.RC-4;
+  const Rsw=Math.hypot(rmax+C.GT/2+0.8,C.GW/2+0.8), Rcol=Math.hypot(C.HI,C.ZF);
+  G={W,rin,rc,cy,rr,rho,tipX,tipYb,neckTop,Ny,open,delta,yr,yc,phic,railY,side,shMargin,fingerMargin,dropTotal,
+     top:P.drop*10,bot:(2*rin-P.dd-P.drop)*10,fit:(2*rin-P.dw)*10,Rsw,Rcol,
+     hemClear:(Ny-P.lg)-(F+40)};
+  G.wallZ=P.mode==='h'?(C.ZB+C.RB+C.ARM+delta+30):200;
+}
+function hookOK(){return P.mode==='h'?(G.side>0&&G.shMargin>0&&G.fingerMargin>0):(G.top>0&&G.bot>0);}
+
+/* ---------- renderer ---------- */
+const view=document.querySelector('.view'), canvas=$('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0b0e11);
+const camera=new THREE.PerspectiveCamera(35,1,0.5,8000);
+const controls=new THREE.OrbitControls(camera,canvas); controls.enableDamping=true; controls.dampingFactor=.08;
+scene.add(new THREE.HemisphereLight(0xdde6f5,0x161b21,.85));
+const d1=new THREE.DirectionalLight(0xffffff,.9); d1.position.set(160,300,220); scene.add(d1);
+const d2=new THREE.DirectionalLight(0x9fb4ff,.35); d2.position.set(-220,90,-140); scene.add(d2);
+const grid=new THREE.GridHelper(700,70,0x26303a,0x161c22); grid.position.set(-10,F,60); scene.add(grid);
+
+const mat=(c,m,r,extra)=>new THREE.MeshStandardMaterial(Object.assign({color:c,metalness:m,roughness:r},extra||{}));
+const M={rod:mat(0x9ba4ad,.7,.32),hub:mat(0x4a525b,.6,.45),rail:mat(0xe5c04a,.15,.5),railDark:mat(0x6b5a22,.1,.7),
+  grip:mat(0x4c76ff,.2,.42),gripDark:mat(0x2a46a6,.2,.5),dest:mat(0x55c46f,.3,.4),destBad:mat(0xff4d8d,.2,.45),
+  bracket:mat(0x5d666f,.5,.5),wall:mat(0x3a4550,0,.9,{transparent:true,opacity:.26,side:THREE.DoubleSide,depthWrite:false}),
+  robot:mat(0xf08a3e,.25,.5),robotDark:mat(0x9a5424,.3,.55),panel:mat(0xf08a3e,0,.8,{transparent:true,opacity:.22,side:THREE.DoubleSide,depthWrite:false}),
+  wheel:mat(0x22272d,.1,.85),drive:mat(0xe5484d,.3,.45),driveDark:mat(0x8f2a2e,.3,.5),motor:mat(0x2d343c,.5,.5),
+  cog:new THREE.MeshBasicMaterial({color:0x7fe3ff}),arrow:mat(0xcfd6dd,.1,.6)};
+
+function clearG(g){while(g.children.length){const c=g.children.pop(); if(c.children&&c.children.length)clearG(c); if(!c.isSprite&&c.geometry)c.geometry.dispose();}}
+function boxAt(g,w,h,l,x,y,z,ry,m){const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,l),m);b.position.set(x,y,z);b.rotation.y=ry||0;g.add(b);return b;}
+function strut(g,a,b,r,m){const d=b.clone().sub(a),L=d.length();const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,L,10),m);c.quaternion.setFromUnitVectors(UP,d.normalize());c.position.copy(a.clone().add(b).multiplyScalar(.5));g.add(c);return c;}
+function gearGeom(r,n,th){
+  const s=new THREE.Shape(),step=2*Math.PI/n,ro=r+0.5,ri=r-0.6;
+  for(let i=0;i<n;i++){const a=i*step;[[ri,a],[ro,a+.22*step],[ro,a+.5*step],[ri,a+.72*step]].forEach(([rr,aa],k)=>{const x=rr*Math.cos(aa),y=rr*Math.sin(aa);(i===0&&k===0)?s.moveTo(x,y):s.lineTo(x,y);});}
+  const g=new THREE.ExtrudeGeometry(s,{depth:th,bevelEnabled:false,curveSegments:2}); g.rotateX(-Math.PI/2); return g;
+}
+
+/* ---------- scene graph: unit (rack + robot) moves together after docking; destination stays in world ---------- */
+const unitG=new THREE.Group(); scene.add(unitG);
+const rackG=new THREE.Group(); unitG.add(rackG);
+const carousel=new THREE.Group(); rackG.add(carousel);
+const robotG=new THREE.Group(); unitG.add(robotG);
+const frameG=new THREE.Group(); robotG.add(frameG);
+const railG=new THREE.Group(); robotG.add(railG);
+const destG=new THREE.Group(); scene.add(destG);
+
+/* ---------- hanger + garment geometry ---------- */
+class Poly extends THREE.Curve{
+  constructor(pts){super();this.pts=pts;this.cum=[0];for(let i=1;i<pts.length;i++)this.cum.push(this.cum[i-1]+pts[i].distanceTo(pts[i-1]));this.L=this.cum[this.cum.length-1];}
+  getPoint(t,o){o=o||new THREE.Vector3();const d=t*this.L,c=this.cum;let i=1;while(i<c.length-1&&c[i]<d)i++;const seg=c[i]-c[i-1];const u=seg>1e-9?(d-c[i-1])/seg:0;return o.copy(this.pts[i-1]).lerp(this.pts[i],u);}
+}
+function hookPts(){
+  const pts=[], N=64, a1=-360+P.tip, a0=-90;
+  for(let i=0;i<=N;i++){const a=(a1+(a0-a1)*i/N)*D2R;pts.push(V(G.rc*Math.cos(a),G.cy+G.rc*Math.sin(a),0));}
+  return pts;
+}
+function hangerCurve(){
+  const pts=hookPts(), W=21, by=G.Ny-18;
+  pts.push(V(0,G.Ny));
+  pts.push(V(W-1.5,by+0.9),V(W,by+0.15),V(W-0.6,by-0.35));
+  pts.push(V(-W+0.6,by-0.35),V(-W,by+0.15),V(-W+1.5,by+0.9));
+  pts.push(V(-0.3,G.Ny-0.1));
+  return new Poly(pts);
+}
+function garmentTop(x){const ax=Math.abs(x),Ny=G.Ny,by=Ny-18;
+  if(ax<3.5)return Ny-4; if(ax<=21.5)return (Ny-2.6)+((by+0.1)-(Ny-2.6))*(ax-3.5)/18; return by-2;}
+let hGeom=null,gGeom=null,hSamples=[],gSamples=[];
+function buildHangerGeom(){
+  const cv=hangerCurve(); if(hGeom)hGeom.dispose(); hGeom=new THREE.TubeGeometry(cv,420,0.2,6,false); hSamples=cv.getSpacedPoints(100);
+  const Ny=G.Ny,by=Ny-18,B=Ny-P.lg,hw=C.GW/2,s=new THREE.Shape();
+  s.moveTo(-3.5,Ny-2.6);s.lineTo(-21.5,by+0.1);s.lineTo(-hw,by-4);s.lineTo(-hw,B);s.lineTo(hw,B);s.lineTo(hw,by-4);s.lineTo(21.5,by+0.1);s.lineTo(3.5,Ny-2.6);s.lineTo(0,Ny-5);s.closePath();
+  if(gGeom)gGeom.dispose();
+  gGeom=new THREE.ExtrudeGeometry(s,{depth:C.GT-1.6,bevelEnabled:true,bevelThickness:.8,bevelSize:.6,bevelSegments:2,curveSegments:2});
+  gGeom.translate(0,0,-(C.GT-1.6)/2);
+  gSamples=[];
+  for(let x=-hw;x<=hw+1e-6;x+=4){const t=garmentTop(x);for(let y=B;y<=t+1e-6;y+=5)for(const z of[-C.GT/2,0,C.GT/2])gSamples.push([x,y,z]);
+    for(const z of[-C.GT/2,C.GT/2])gSamples.push([x,t,z]);}
+}
+
+/* ---------- waiting hanger (rack): base on casters, fixed pole, rotating ring + rods + hub gear ---------- */
+const sprCache={};
+function numSprite(n){
+  if(!sprCache[n]){const cv=document.createElement('canvas');cv.width=cv.height=64;const g=cv.getContext('2d');
+    g.fillStyle='#1a2027';g.beginPath();g.arc(32,32,28,0,7);g.fill();g.strokeStyle='#9ba4ad';g.lineWidth=3;g.stroke();
+    g.fillStyle='#e3e7eb';g.font='600 30px "JetBrains Mono", monospace';g.textAlign='center';g.textBaseline='middle';g.fillText(String(n),32,34);
+    sprCache[n]=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false});}
+  const s=new THREE.Sprite(sprCache[n]); s.scale.set(8,8,1); s.renderOrder=10; return s;
+}
+function buildRack(){
+  clearG(rackG); rackG.add(carousel); clearG(carousel);
+  const rr=P.dw/2, y=-rr;
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(30,31,4,40),M.hub); base.position.y=F+6; rackG.add(base);
+  for(let k=0;k<4;k++){const a=k*Math.PI/2+Math.PI/4;const w=new THREE.Mesh(new THREE.SphereGeometry(3.4,14,10),M.wheel);w.position.set(25*Math.cos(a),F+3.4,25*Math.sin(a));rackG.add(w);}
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,8-F,20),M.hub); pole.position.y=(F+8)/2+4; rackG.add(pole);
+  const latch=boxAt(rackG,8,5,4,0,F+12.5,30,0,M.robotDark);
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(5,5,5,24),M.driveDark); cap.position.y=10.5; rackG.add(cap);
+  // rotating part
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(C.RC,rr,12,120),M.rod); ring.rotation.x=Math.PI/2; ring.position.y=y; carousel.add(ring);
+  for(let k=0;k<3;k++){const a=k*2*Math.PI/3+.3; boxAt(carousel,C.RC-4,1.2,1.6,Math.cos(a)*(C.RC+4)/2,y+0.6,Math.sin(a)*(C.RC+4)/2,-a,M.hub);}
+  const collar=new THREE.Mesh(new THREE.CylinderGeometry(4,4,7,20),M.hub); collar.position.y=1.5; carousel.add(collar);
+  const gear=new THREE.Mesh(gearGeom(C.RG,28,3),M.drive); gear.position.y=5; carousel.add(gear);
+  C.LENS.forEach((L,i)=>{
+    const a=i*Math.PI/3+Math.PI/2, d=V(Math.cos(a),0,Math.sin(a));
+    const rod=new THREE.Mesh(new THREE.CylinderGeometry(rr,rr,L+1,16),M.rod); rod.quaternion.setFromUnitVectors(UP,d);
+    rod.position.copy(d.clone().multiplyScalar(C.RC+L/2-0.5)); rod.position.y=y; carousel.add(rod);
+    const capR=new THREE.Mesh(new THREE.SphereGeometry(rr,14,10),M.rod); capR.position.copy(d.clone().multiplyScalar(C.RC+L)); capR.position.y=y; carousel.add(capR);
+    const sp=numSprite(i+1); sp.position.copy(d.clone().multiplyScalar(C.RC+L+7)); sp.position.y=y+7; carousel.add(sp);
+  });
+}
+
+/* ---------- rail path (robot frame). o = offset toward the gripper arm side ---------- */
+const BCX=C.XR-C.RB;
+function railAt(s){
+  const A=C.ZB-P.z0, B=Math.PI/2*C.RB;
+  if(s<=A) return {x:C.XR,z:P.z0+s,tx:0,tz:1,seg:0,a:0};
+  if(s<=A+B){const a=(s-A)/C.RB;return {x:BCX+C.RB*Math.cos(a),z:C.ZB+C.RB*Math.sin(a),tx:-Math.sin(a),tz:Math.cos(a),seg:1,a};}
+  const u=s-A-B; return {x:BCX-u,z:C.ZB+C.RB,tx:-1,tz:0,seg:2,a:Math.PI/2};
+}
+function pathBoxes(g,zs,o,y,w,h,m){
+  const L=C.ZB-zs; boxAt(g,w,h,L,C.XR+o,y,zs+L/2,0,m);
+  const R=C.RB+o,n=24,da=Math.PI/2/n;
+  for(let j=0;j<n;j++){const a=(j+.5)*da;boxAt(g,w,h,R*da*1.08,BCX+R*Math.cos(a),y,C.ZB+R*Math.sin(a),-a,m);}
+  boxAt(g,C.LC,h,w,BCX-C.LC/2,y,C.ZB+R,0,m);
+}
+function pathPt(seg,p,o){if(seg===0)return [C.XR+o,p,0];if(seg===1)return [BCX+(C.RB+o)*Math.cos(p),C.ZB+(C.RB+o)*Math.sin(p),p];return [p,C.ZB+C.RB+o,Math.PI/2];}
+
+/* ---------- robot: portal frame the garments pass through ---------- */
+let OBS=[], wheels=[], pinion=null, cogMark=null, cogLine=null;
+function obsBox(g,name,w,h,l,x,y,z,m){OBS.push({n:name,x0:x-w/2,x1:x+w/2,y0:y-h/2,y1:y+h/2,z0:z-l/2,z1:z+l/2});return boxAt(g,w,h,l,x,y,z,0,m);}
+function buildRobot(){
+  clearG(frameG); OBS=[]; wheels=[];
+  const zf=C.ZF,zb=C.ZBK,zc=(zf+zb)/2,D=zb-zf,HO=C.HO,yT=C.YTOP;
+  obsBox(frameG,'로봇 하부 섀시',HO*2,20,D,0,F+20,zc,M.robotDark);
+  boxAt(frameG,22,10,D-12,18,F+35,zc,0,M.motor); OBS.push({n:'로봇 하부 섀시',x0:7,x1:29,y0:F+30,y1:F+40,z0:zf+6,z1:zb-6});
+  [[-C.WX,C.WZ0],[C.WX,C.WZ0],[-C.WX,C.WZ1],[C.WX,C.WZ1]].forEach(([x,z])=>{
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(7,7,5,22),M.wheel); w.rotation.z=Math.PI/2; const p=new THREE.Group(); p.position.set(x+(x>0?3.5:-3.5),F+7,z); p.add(w); frameG.add(p); wheels.push(w);
+    const hubm=new THREE.Mesh(new THREE.BoxGeometry(5.2,2,9),M.motor); w.add(hubm);});
+  const colH=yT-(F+30), colY=(yT+F+30)/2;
+  [[-1,zf+2.5,'로봇 앞기둥'],[1,zf+2.5,'로봇 앞기둥'],[-1,zb-2.5,'로봇 뒷기둥'],[1,zb-2.5,'로봇 뒷기둥']].forEach(([s,z,n])=>obsBox(frameG,n,5,colH,5,s*(C.HI+2.5),colY,z,M.robot));
+  [-1,1].forEach(s=>{const p=boxAt(frameG,1,70,D-10,s*(HO-0.5),F+65,zc,0,M.panel);OBS.push({n:'로봇 옆판',x0:s>0?HO-1:-HO,x1:s>0?HO:-HO+1,y0:F+30,y1:F+100,z0:zf+5,z1:zb-5});
+    boxAt(frameG,4,4,D,s*(HO-2),yT-2,zc,0,M.robot);});
+  boxAt(frameG,HO*2,4,4,0,yT-2,zf+2,0,M.robot); boxAt(frameG,HO*2,4,4,0,yT-2,zb-2,0,M.robot);
+  boxAt(frameG,HO*2,2,D,0,yT+1,zc,0,M.robotDark);
+  // tow bar at floor level to the rack base
+  obsBox(frameG,'견인 연결부',4,4,zf-34,0,F+12.5,(zf+34)/2,M.robotDark);
+  // top arm reaching the rack's hub gear, motor + pinion at its tip
+  const zp=C.RG+C.RP;
+  boxAt(frameG,6,4,zf-zp+3,0,yT-2,(zf+zp-3)/2,0,M.robot);
+  boxAt(frameG,8,11,8,0,14.5,zp,0,M.motor);
+  pinion=new THREE.Mesh(gearGeom(C.RP,8,3),M.robot); pinion.position.set(0,5,zp); frameG.add(pinion);
+  // support polygon + centre of gravity marker
+  const pts=[V(-C.WX,F+0.3,C.WZ0),V(C.WX,F+0.3,C.WZ0),V(C.WX,F+0.3,C.WZ1),V(-C.WX,F+0.3,C.WZ1)];
+  frameG.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x7fe3ff,transparent:true,opacity:.6})));
+  cogMark=new THREE.Mesh(new THREE.SphereGeometry(2.2,14,10),M.cog); frameG.add(cogMark);
+  cogLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,1,0)]),new THREE.LineBasicMaterial({color:0x7fe3ff})); frameG.add(cogLine);
+}
+function buildRail(){
+  clearG(railG); const y=G.railY, yb=14;
+  pathBoxes(railG,P.z0,0,y,3,4,M.rail);
+  boxAt(railG,3.6,5,1,C.XR,y,P.z0-0.5,0,M.railDark);
+  boxAt(railG,1,5,3.6,BCX-C.LC-0.5,y,C.ZB+C.RB,0,M.railDark);
+  // overhead support beam on the side away from the arm, from the robot's front top beam to the end of the side rail
+  pathBoxes(railG,C.ZF+2,-4.5,yb,3,3,M.robotDark);
+  [C.ZF+2,C.ZBK-2].forEach(z=>boxAt(railG,3,C.YTOP-4-yb,3,C.XR-4.5,(C.YTOP-4+yb)/2,z,0,M.robotDark));
+  const hangersAt=[[0,C.ZF+14],[0,(C.ZF+C.ZBK)/2+6],[0,C.ZBK-4],[1,Math.PI/4],[2,BCX-22],[2,BCX-48],[2,BCX-C.LC+4]];
+  hangersAt.forEach(([seg,p])=>{const [x,z,a]=pathPt(seg,p,-4.5);boxAt(railG,2,yb-y,2,x,(yb+y)/2,z,0,M.robotDark);
+    const [tx,tz]=pathPt(seg,p,-3);boxAt(railG,3,1.6,1.6,tx,y+1.2,tz,-a,M.robotDark);});
+  strut(railG,V(-C.HO+2,C.YTOP-2,C.ZBK-2),V(BCX-40,yb,C.ZB+C.RB-4.5),1,M.robotDark);
+}
+
+/* ---------- gripper: fixed arm, fingers swing open sideways ---------- */
+const grip=new THREE.Group(); robotG.add(grip);
+boxAt(grip,3.6,5.8,6.6,0.6,0,0,0,M.grip);
+const gArm=new THREE.Mesh(new THREE.CylinderGeometry(.65,.65,C.ARM-5.8,14),M.grip); gArm.rotation.z=Math.PI/2; gArm.position.x=(2.4+C.ARM-3.4)/2; grip.add(gArm);
+boxAt(grip,1.6,2.6,3.6,C.ARM-2.6,0,0,0,M.gripDark);
+M.gripO=mat(0xff7a1a,.35,.5);
+/* 갈고리형(C형) 그리퍼: 목을 옆에서 포획 · 받침은 몸체 아래(어깨 받침) · 이탈 방지 걸쇠 */
+boxAt(grip,3.4,3.6,.5,C.ARM+0.4,0,-1.05,0,M.gripO);   // 고정 측벽
+boxAt(grip,3.4,.6,2.6,C.ARM+0.4,-1.5,0,0,M.gripO);    // 받침 (옷걸이 어깨 아래)
+boxAt(grip,.8,3.6,2.6,C.ARM-1.4,0,0,0,M.gripO);       // 등판
+const fingers=[1].map(sg=>{const pv=new THREE.Group();pv.position.set(C.ARM+1.9,0,1.05);grip.add(pv);
+  boxAt(pv,.5,3.0,2.1,0,0,-1.05,0,M.gripO);           // 걸쇠: 닫히면 입구를 막음
+  const pin=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,3.4,10),M.gripDark);pv.add(pin);
+  pv.userData.sg=sg;return pv;});
+M.split=mat(0xff9f43,.3,.45); M.adapter=mat(0x55c46f,.2,.5);
+const adGeom=new THREE.CylinderGeometry(.9,.9,2.2,14);
+const ledMat=new THREE.MeshStandardMaterial({color:0xff4d8d,emissive:0x661030});
+const led=new THREE.Mesh(new THREE.SphereGeometry(.55,12,10),ledMat); led.position.set(C.ARM-2.6,2.6,0); grip.add(led);
+const _m=new THREE.Matrix4();
+function poseGrip(){
+  const r=railAt(st.gs); grip.position.set(r.x,G.railY,r.z);
+  _m.makeBasis(V(r.tz,0,-r.tx),UP,V(r.tx,0,r.tz)); grip.quaternion.setFromRotationMatrix(_m);
+  fingers.forEach(pv=>{pv.rotation.y=-pv.userData.sg*st.open*P.jaw*D2R;});
+  ledMat.color.setHex(st.led?0x55c46f:0xff4d8d); ledMat.emissive.setHex(st.led?0x1d6a2c:0x661030);
+}
+
+/* ---------- destination hangers (world, wall-mounted) ---------- */
+let destMeshes=[];
+const H_XFAR=BCX-75, H_XNEAR=BCX+22;
+function destS(k){
+  const A=C.ZB-P.z0, B=Math.PI/2*C.RB;
+  if(P.mode==='h'){const hx=slotX(k); return A+B+(BCX-hx);}
+  const hz=(C.ZB-5)-C.SP*k; return hz-P.z0;
+}
+function buildDest(){
+  clearG(destG); destMeshes=[]; const rr=P.dd/2, y=G.yr, Wz=G.wallZ;
+  if(P.mode==='h'){
+    const z=C.ZB+C.RB+C.ARM+G.delta, L=H_XNEAR-H_XFAR;
+    const rod=new THREE.Mesh(new THREE.CylinderGeometry(rr,rr,L,18),M.dest); rod.rotation.z=Math.PI/2; rod.position.set((H_XFAR+H_XNEAR)/2,y,z); destG.add(rod); destMeshes.push(rod);
+    [H_XFAR,H_XNEAR].forEach(x=>{boxAt(destG,1.4,2.2,Wz-z+rr,x,y,(z+Wz)/2,0,M.bracket);});
+    const wall=new THREE.Mesh(new THREE.PlaneGeometry(260,60-F),M.wall); wall.position.set(-40,(F+60)/2,Wz); destG.add(wall);
+  }else{
+    const z0=C.ZF+4, z1=Wz, L=z1-z0;
+    const rod=new THREE.Mesh(new THREE.CylinderGeometry(rr,rr,L,18),M.dest); rod.rotation.x=Math.PI/2; rod.position.set(0,y,(z0+z1)/2); destG.add(rod); destMeshes.push(rod);
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(rr,14,10),M.dest); cap.position.set(0,y,z0); destG.add(cap); destMeshes.push(cap);
+    boxAt(destG,6,6,1.6,0,y,z1-0.8,0,M.bracket);
+    strut(destG,V(0,y-1,z1-30),V(0,y-25,z1-0.5),0.7,M.bracket);
+    const wall=new THREE.Mesh(new THREE.PlaneGeometry(260,60-F),M.wall); wall.position.set(-40,(F+60)/2,Wz); destG.add(wall);
+  }
+  destMeshes.forEach(m=>m.material=hookOK()?M.dest:M.destBad);
+  buildSplit();
+}
+
+
+/* ---------- 벌림 장치(쟁기) + 목적지 봉의 기존 옷 ---------- */
+const splG=new THREE.Group(); scene.add(splG);
+const PRE=16, WL=4, PLH=22, FLIM=30, SLOT_OFF=28, MUF=1.47, TDG=0.2;
+let dum=[], wedgeG=null, mountBar=null, mountPost=null, beamB=null, stemB=null;
+function slotX(k){return H_XFAR+5+(P.mode==='h'&&P.nd>0?SLOT_OFF:0)+C.SP*k;}
+function buildSplit(){
+  while(splG.children.length)splG.remove(splG.children[0]);
+  dum=[];wedgeG=null;mountBar=mountPost=beamB=stemB=null;
+  if(P.mode!=='h')return;
+  const zr=C.ZB+C.RB+C.ARM+G.delta, y=G.yr-(G.cy+G.rho), pd=Math.max(P.pd,P.td+TDG);
+  for(let j=0;j<P.nd;j++){const x=H_XFAR+3+j*pd;
+    const m=new THREE.Mesh(hGeom,mat(0xe9edf1,.55,.35)), gm=mat(CLOTH[(j+2)%6],0,.92,{emissive:0x000000}), g=new THREE.Mesh(gGeom,gm);
+    g.scale.z=P.td/C.GT; m.add(g); m.position.set(x,y,zr); _m.makeBasis(V(0,0,1),UP,V(-1,0,0)); m.quaternion.setFromRotationMatrix(_m);
+    splG.add(m); dum.push({x,td:P.td,m,gm,g});}
+  if(P.split==='none')return;
+  const z0=P.dd/2+0.6,z1=12,ytop=G.yr+4.2;
+  wedgeG=new THREE.Group(); splG.add(wedgeG); wedgeG.userData={ytop,zr};
+  [1,-1].forEach(s=>{const b=new THREE.Mesh(new THREE.BoxGeometry(WL,PLH,z1-z0),M.split);b.position.set(WL/2,ytop-PLH/2,s*(z0+z1)/2);wedgeG.add(b);});
+  const br=new THREE.Mesh(new THREE.BoxGeometry(1.2,1.2,2*z1),M.split);br.position.set(WL-0.6,ytop+0.6,0);wedgeG.add(br);
+  if(P.split==='A'){
+    mountBar=new THREE.Mesh(new THREE.BoxGeometry(1,1.2,1.2),M.split);splG.add(mountBar);
+    mountPost=new THREE.Mesh(new THREE.BoxGeometry(1.2,1,1.2),M.split);splG.add(mountPost);
+  }else{
+    beamB=new THREE.Mesh(new THREE.BoxGeometry(H_XNEAR-H_XFAR+30,1.6,1.6),M.bracket);beamB.position.set((H_XFAR+H_XNEAR)/2+10,ytop+30,zr);splG.add(beamB);
+    stemB=new THREE.Mesh(new THREE.BoxGeometry(1.2,1,1.2),M.split);splG.add(stemB);
+  }
+}
+function pushRow(tip){
+  let lim=tip,cnt=0,counting=true;
+  for(let j=dum.length-1;j>=0;j--){const d=dum[j],mx=lim-d.td/2;
+    if(d.x>mx-1e-6){if(d.x>mx+1e-6)d.x=mx;if(counting)cnt++;}else counting=false;
+    lim=d.x-d.td/2-TDG;}
+  if(dum.length){const d0=dum[0];st.room=d0.x-(H_XFAR+1+d0.td/2);
+    if(cnt>0)st.fmax=Math.max(st.fmax,3+MUF*cnt);
+    if(st.room<-0.01&&!st.jam){st.jam=true;st.interf++;log('쟁기 앞 옷이 더 못 밀림 · 봉 끝에 걸림 (벌림 한계 초과)','bad');}}
+}
+function splitStep(){
+  const r=railAt(st.gs), carrying=!!st.cur&&st.cur.state==='carried'&&r.seg===2;
+  dum.forEach(d=>{
+    const hit=carrying&&Math.abs(d.x-r.x)<(C.GT+d.td)/2-0.05;
+    d.gm.emissive.setHex(hit?0x7a1240:0x000000); d.g.visible=P.clothes; d.m.position.x=d.x;
+    if(hit&&!st.hitFlag){st.hitFlag=true;st.hitD++;st.interf++;log('옷 간섭: 이송 중인 옷걸이가 목적지 봉의 기존 옷과 겹침 (벌림 필요)','bad');}});
+  if(!wedgeG)return;
+  const {ytop,zr}=wedgeG.userData, lift=st.wlift*26;
+  let tip,show;
+  if(P.split==='A'){show=(r.seg===2);let ext=0;
+    if(st.phase==='split')ext=st.ext; else if(st.splitDone)ext=Math.max(0,Math.min(1,(r.x-slotX(st.k))/PRE));
+    tip=r.x-C.GT/2-P.clr-WL-ext*PRE;}
+  else{show=true;tip=st.cx;}
+  wedgeG.visible=show; wedgeG.position.set(tip,lift,zr);
+  const yb=ytop+0.6+lift;
+  if(P.split==='A'){
+    mountBar.visible=mountPost.visible=show;
+    const gz=r.z+st.rdz, len=Math.max(1,r.x-(tip+WL));
+    mountBar.scale.x=len; mountBar.position.set(tip+WL+len/2,yb,gz);
+    const ph=yb-G.railY; mountPost.scale.y=Math.max(.1,ph); mountPost.position.set(r.x,G.railY+ph/2,gz);
+  }else{
+    const top=ytop+30, ph=Math.max(.1,top-yb); stemB.scale.y=ph; stemB.position.set(tip+WL/2,yb+ph/2,zr);
+  }
+  if(show&&st.wlift<0.5)pushRow(tip);
+}
+
+/* ---------- hangers, garments & state ---------- */
+const CLOTH=[0x3d5272,0x6b5a3d,0x6a3a4a,0x4e6650,0x7a6f5f,0x3f6670];
+let hangers=[];
+function initHangers(){
+  hangers.forEach(h=>{unitG.remove(h.mesh);h.mat.dispose();h.gmat.dispose();}); hangers=[];
+  C.LENS.forEach((L,i)=>{const m=mat(0xe9edf1,.55,.35);const mesh=new THREE.Mesh(hGeom,m);
+    const gm=mat(CLOTH[i],0,.92,{emissive:0x000000});const gmesh=new THREE.Mesh(gGeom,gm);gmesh.visible=P.clothes;mesh.add(gmesh);const ad=new THREE.Mesh(adGeom,M.adapter);ad.position.set(0,G.railY,0);mesh.add(ad);unitG.add(mesh);
+    hangers.push({id:i+1,rod:i,r:C.RC+L-4,state:'rod',mesh,mat:m,gmesh,gmat:gm,swingT:0,swingA:0,hit:null,wasHit:null});});
+  $('nTot').textContent=hangers.length;
+}
+const st={}; let playing=true, stepMode=false;
+const dockOf=phi=>((Math.round(-phi/(Math.PI/3))%6)+6)%6;
+function resetState(){
+  const h=hangers[0], s=h.r-P.z0;
+  Object.assign(st,{phase:'dock',t:0,uz:-C.TRAVEL,rdz:C.DOCK0,gs:s>=3.3?s:4,open:1,phi:0,phi0:0,phi1:0,cur:null,target:0,stopS:0,done:0,k:0,interf:0,unreach:0,steps:0,cog:null,wlift:1,ext:0,splitDone:false,cx:H_XNEAR+8,led:false,room:99,fmax:0,hitD:0,hitFlag:false,jam:false});
+  logs=[]; log('로봇이 대기 행거 쪽으로 접근 · 그리퍼는 1번 옷걸이 자리에서 집게를 벌리고 대기');
+}
+function setPhase(p){st.phase=p;st.t=0; if(stepMode&&p!=='select'){playing=false;stepMode=false;syncPlay();}}
+
+function frameOf(h){
+  if(h.state==='rod'||h.state==='stuck'){const a=h.rod*Math.PI/3+Math.PI/2+st.phi,dx=Math.cos(a),dz=Math.sin(a);return {px:dx*h.r,pz:dz*h.r,y:0,X:[dz,-dx],Z:[dx,dz]};}
+  if(h.state==='carried'){const r=railAt(st.gs),ox=r.tz,oz=-r.tx;return {px:r.x+ox*C.ARM,pz:r.z+st.rdz+oz*C.ARM,y:0,X:[ox,oz],Z:[r.tx,r.tz]};}
+  return {px:h.rodX-h.X[0]*h.relX,pz:h.rodZ-h.X[1]*h.relX,y:h.rodY-h.relY,X:h.X,Z:h.Z};
+}
+
+function update(dt){
+  st.t+=dt; const ph=st.phase;
+  if(ph==='dock'){const dur=2.4;st.rdz=C.DOCK0*(1-ease(st.t/dur));
+    if(st.t>=dur){st.rdz=0;log(`도킹 완료 · 견인 연결부 체결, 피니언 8T–허브 기어 28T 맞물림 (감속비 ${fmt(C.RG/C.RP,1)}:1)`,'ok');setPhase('travel');}return;}
+  if(ph==='travel'){const dur=C.TRAVEL/45;st.uz=-C.TRAVEL*(1-ease(st.t/dur));
+    if(st.t>=dur){st.uz=0;log(`목적지 도착 · ${C.TRAVEL} cm 견인 이동`);setPhase('select');}return;}
+  if(ph==='select'){
+    for(let k=0;k<6;k++){
+      const i=dockOf(st.phi+P.dir*k*Math.PI/3), h=hangers[i];
+      if(h.state!=='rod')continue;
+      const s=h.r-P.z0;
+      if(s<3.3){h.state='stuck';st.unreach++;log(`봉 ${i+1}: 옷걸이가 레일 앞 끝보다 안쪽이라 그리퍼가 닿지 못함`,'warn');continue;}
+      st.cur=h;st.target=s;st.steps=k;st.hitFlag=false;setPhase('position');return;
+    }
+    setPhase('done');log(`완료: ${st.done}벌 이송`+(st.unreach?`, ${st.unreach}벌 도달 불가`:''),st.unreach||st.interf?'warn':'ok');return;
+  }
+  if(ph==='position'){const d=st.target-st.gs;st.gs+=Math.sign(d)*Math.min(Math.abs(d),45*dt);
+    if(Math.abs(st.target-st.gs)<1e-6){st.phi0=st.phi;st.phi1=st.phi+P.dir*st.steps*Math.PI/3;setPhase(st.steps?'rotate':'grip');}return;}
+  if(ph==='rotate'){const dur=1.6*st.steps;st.phi=st.phi0+(st.phi1-st.phi0)*ease(st.t/dur);
+    if(st.t>=dur){st.phi=st.phi1;log(`봉 ${st.cur.rod+1} 정렬 · 옷걸이 #${st.cur.id} 목이 집게 안으로 들어옴`);setPhase('grip');}return;}
+  if(ph==='grip'){st.open=1-ease(st.t/.4);if(st.t>=.4){st.open=0;st.cur.state='carried';st.stopS=destS(st.k);setPhase('verify');}return;}
+  if(ph==='verify'){if(st.t>.25&&!st.led){st.led=true;log(`옷걸이 #${st.cur.id} 어댑터 결합 확인 (접촉 센서 ON)`,'ok');}
+    if(st.t>=.7)setPhase((P.split==='B'||P.split==='A')&&P.mode==='h'&&P.split==='B'?'split':'carry');return;}
+  if(ph==='split'&&P.split==='A'){st.wlift=0;st.ext=Math.min(1,st.ext+dt*18/PRE);
+    if(st.ext>=1){st.splitDone=true;log('쟁기 신장으로 틈 확보 · 이제 옷걸이를 삽입','ok');setPhase('insert');}return;}
+  if(ph==='insert'){st.gs=Math.min(st.stopS,st.gs+12*dt);if(st.gs>=st.stopS)setPhase('release');return;}
+  if(ph==='split'){
+    if(st.t<.4){st.wlift=Math.max(0,1-st.t/.4);st.cx=H_XNEAR+8;}
+    else{const tgt=slotX(st.k)-C.GT/2-P.clr-WL;st.cx=Math.max(tgt,st.cx-45*dt);if(st.cx<=tgt+1e-6)setPhase('carry');}
+    return;}
+  if(ph==='unsplit'){st.wlift=Math.min(1,st.wlift+dt/.5);if(st.wlift>=1){st.splitDone=false;st.ext=0;setPhase('select');}return;}
+  if(ph==='carry'){const v=railAt(st.gs).seg===1?20:32;st.gs=Math.min(st.stopS,st.gs+v*dt);
+    if(P.split==='A'&&P.mode==='h'&&railAt(st.gs).seg===2)st.wlift=Math.max(0,st.wlift-dt/.45);
+    const aSplit=(P.split==='A'&&P.mode==='h'), tg=aSplit?st.stopS-PRE:st.stopS;
+    if(aSplit&&st.gs>tg)st.gs=tg;
+    if(st.gs>=tg-1e-6){if(aSplit&&!st.splitDone){st.ext=0;setPhase('split');}else setPhase('release');}return;}
+  if(ph==='release'){st.open=ease(st.t/.35);st.led=false;
+    if(st.t>=.35){st.open=1;const h=st.cur,f=frameOf(h);
+      Object.assign(h,{X:f.X,Z:f.Z,rodX:f.px+f.X[0]*G.delta,rodZ:f.pz+f.X[1]*G.delta,rodY:G.yr,relX:G.delta,relY:G.yr,vy:0,stage:'fall',state:'falling'});
+      setPhase('drop');}return;}
+  if(ph==='drop'){const h=st.cur;
+    if(h.stage==='fall'){const sd=dt*.12;h.vy+=981*sd;h.relY+=h.vy*sd;if(h.relY>=G.yc){h.relY=G.yc;h.stage='settle';h.t=0;}}
+    else{h.t+=dt;const u=G.phic>=Math.PI/2-1e-3?1:ease(h.t/.5),a=G.phic+(Math.PI/2-G.phic)*u;
+      h.relX=G.rho*Math.cos(a);h.relY=G.cy+G.rho*Math.sin(a);
+      if(u>=1){h.relX=0;h.relY=G.cy+G.rho;h.state='dest';h.swingT=0;h.swingA=Math.min(.12,.02+.01*G.dropTotal/10*3);st.done++;st.k++;
+        const ok=hookOK();
+        log(`옷걸이 #${h.id} → ${P.mode==='h'?'가로형':'벽방향'} 봉에 걸림 (총 낙하 ${fmt(G.dropTotal,1)} mm)`+(ok?'':' · 실제로는 간섭'),ok?'ok':'bad');
+        setPhase(P.split==='none'||P.mode==='w'?'select':'unsplit');}}
+    return;}
+}
+
+/* ---------- interference ---------- */
+function wireHit(h){
+  const g=railAt(st.gs), hw=1.5+C.WIRE, hh=2+C.WIRE, ry=G.railY, f=frameOf(h);
+  for(const p of hSamples){
+    const wx=f.px+f.X[0]*p.x, wz=f.pz+f.X[1]*p.x-st.rdz, wy=p.y;
+    if(Math.abs(wy-ry)<hh&&Math.abs(wx-C.XR)<hw&&wz>=P.z0&&wz<=C.ZB)return '레일';
+    if(g.seg===0&&Math.abs(wy-ry)<2.9&&Math.abs(wz-g.z)<3.4&&wx>C.XR-1.2&&wx<C.XR+C.ARM-1.4)return '그리퍼';
+  }
+  return null;
+}
+function garmentHit(h){
+  const f=frameOf(h), onWorld=h.state!=='rod'&&h.state!=='stuck';
+  for(const p of gSamples){
+    const wx=f.px+f.X[0]*p[0]+f.Z[0]*p[2], wy=f.y+p[1], wz=f.pz+f.X[1]*p[0]+f.Z[1]*p[2], rz=wz-st.rdz;
+    for(const o of OBS){if(wx>o.x0&&wx<o.x1&&wy>o.y0&&wy<o.y1&&rz>o.z0&&rz<o.z1)return o.n;}
+    if(onWorld&&wz+st.uz>G.wallZ)return '벽';
+    if(wy<F)return '바닥';
+  }
+  return null;
+}
+function checkInterference(){
+  let any=null;
+  for(const h of hangers){
+    let hit=null;
+    if(h.state==='rod'||h.state==='stuck'){const w=wireHit(h);if(w)hit=w;}
+    if(!hit&&(h!==st.cur||h.state!=='falling'))hit=garmentHit(h);
+    h.hit=hit;
+    if(hit&&hit!==h.wasHit){st.interf++;log(`간섭: 옷걸이 #${h.id} ↔ ${hit}`,'bad');}
+    h.wasHit=hit; if(hit)any=hit;
+  }
+  const b=$('badge'); b.hidden=!any; if(any)b.textContent='간섭 감지 · '+any;
+}
+
+/* ---------- centre of gravity of the robot (rack is towed, not counted) ---------- */
+function cogCalc(){
+  const zc=(C.ZF+C.ZBK)/2, r=railAt(st.gs), ox=r.tz, oz=-r.tx;
+  const L=[[18,0,F+20,zc],[12,18,F+35,zc],[9,0,(F+C.YTOP)/2,zc],[1.5,0,C.YTOP-2,(C.ZF+18)/2],[2,0,14,18],
+    [2,C.XR,G.railY,(P.z0+C.ZBK)/2],[3,BCX-C.LC/2,8,C.ZB+C.RB],[0.8,r.x+ox*C.ARM/2,G.railY,r.z+oz*C.ARM/2]];
+  if(st.cur&&st.cur.state==='carried'){const f=frameOf(st.cur);L.push([1.2,f.px,G.Ny-P.lg*0.35,f.pz-st.rdz]);}
+  let m=0,x=0,y=0,z=0;L.forEach(([a,b,c,d])=>{m+=a;x+=a*b;y+=a*c;z+=a*d;});x/=m;y/=m;z/=m;
+  const margin=Math.min(x+C.WX,C.WX-x,z-C.WZ0,C.WZ1-z), h=y-F;
+  return {m,x,y,z,margin,h,acc:9.81*margin/h};
+}
+
+const _q=new THREE.Quaternion();
+function placeHangers(dt){
+  for(const h of hangers){
+    const f=frameOf(h);
+    h.mesh.position.set(f.px,f.y,f.pz);
+    _m.makeBasis(V(f.X[0],0,f.X[1]),UP,V(f.Z[0],0,f.Z[1])); h.mesh.quaternion.setFromRotationMatrix(_m);
+    if(h.state==='dest'){h.swingT+=dt;const a=h.swingA*Math.exp(-h.swingT/1.4)*Math.sin(2*Math.PI*h.swingT/.9);_q.setFromAxisAngle(ZAX,a);h.mesh.quaternion.multiply(_q);}
+    h.mat.color.setHex(h.hit?0xff4d8d:h.state==='stuck'?0xffc04a:0xe9edf1);
+    h.gmat.emissive.setHex(h.hit?0x7a1240:0x000000);
+    h.gmesh.visible=P.clothes;
+  }
+}
+
+/* ---------- 2D hook section at the moment of release ---------- */
+function drawHook(){
+  const cv=$('hookCv'), g=cv.getContext('2d'), Wd=cv.width, sc=Wd/9.5, ox=Wd*0.42, oy=Wd*0.30;
+  const X=x=>ox+x*sc, Y=y=>oy-y*sc;
+  g.clearRect(0,0,Wd,Wd); g.lineCap='round'; g.lineJoin='round';
+  const pts=hookPts(); g.strokeStyle='#eef1f4'; g.lineWidth=Math.max(2,0.34*sc);
+  g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(X(p.x),Y(p.y)):g.moveTo(X(p.x),Y(p.y)));
+  g.lineTo(X(0),Y(G.Ny)); g.lineTo(X(2.4),Y(G.Ny-2.06)); g.moveTo(X(0),Y(G.Ny)); g.lineTo(X(-2.4),Y(G.Ny-2.06)); g.stroke();
+  g.fillStyle='rgba(76,118,255,.75)'; g.fillRect(X(-1.4),Y(G.railY+1.1),3*sc,2.2*sc);
+  g.fillStyle=hookOK()?'#55c46f':'#ff4d8d'; g.beginPath(); g.arc(X(G.delta),Y(G.yr),G.rr*sc,0,7); g.fill();
+  g.strokeStyle='rgba(85,196,111,.55)'; g.setLineDash([3,3]); g.lineWidth=1.2;
+  g.beginPath(); g.arc(X(0),Y(-G.rr),G.rr*sc,0,7); g.stroke(); g.setLineDash([]);
+  g.fillStyle='#8692a0'; g.font='11px "JetBrains Mono", monospace'; g.fillText('놓는 순간',6,Wd-22); g.fillStyle='rgba(85,196,111,.8)'; g.fillText('점선: 걸린 뒤',6,Wd-8);
+}
+
+/* ---------- UI ---------- */
+let logs=[];
+function log(msg,kind){logs.unshift({msg,kind:kind||''});logs=logs.slice(0,8);renderLog();}
+function renderLog(){const ul=$('log');ul.innerHTML='';if(!logs.length){const li=document.createElement('li');li.textContent='아직 기록 없음';ul.appendChild(li);return;}
+  logs.forEach(l=>{const li=document.createElement('li');li.className=l.kind;li.textContent=l.msg;ul.appendChild(li);});}
+
+function stepIdx(){const p=st.phase;
+  if(p==='dock')return 0;if(p==='travel')return 1;if(p==='position')return 2;if(p==='rotate')return 3;if(p==='grip')return 4;if(p==='verify')return 5;if(p==='split')return 6;
+  if(p==='insert')return 8;if(p==='carry')return (railAt(st.gs).seg===2&&!(P.split==='A'&&P.mode==='h'&&!st.splitDone))?8:7;
+  if(p==='release'||p==='drop'||p==='unsplit')return 9;return -1;}
+function phaseText(){
+  const p=st.phase,h=st.cur;
+  switch(p){
+    case 'dock':return ['도킹','로봇이 대기 행거로 접근 · 바닥 견인부와 상단 기어가 함께 맞물림'];
+    case 'travel':return ['목적지로 이동','로봇이 대기 행거를 끌고 이동 · 모터 브레이크로 회전 잠금'];
+    case 'position':return ['그리퍼 대기 위치 선점',`봉 ${h.rod+1}의 옷걸이 #${h.id}가 들어올 자리로 이동 · 집게 벌림`];
+    case 'rotate':return ['대기 행거 회전',`로봇 피니언이 허브 기어를 돌려 봉 ${h.rod+1} 정렬 · ${P.dir>0?'화살표 방향':'반대 방향'}`];
+    case 'grip':return ['집게 닫힘',`옷걸이 #${h.id} 목을 잡음`];
+    case 'carry':{const r=railAt(st.gs),hz=r.z-r.tx*C.ARM;
+      if(r.seg===0){const tip=C.RC+C.LENS[h.rod];
+        if(hz<tip)return ['직선 이송',`대기봉 ${h.rod+1} 위를 미끄러지는 중 · 봉 끝까지 ${fmt(tip-hz,0)} cm`];
+        if(hz>C.ZF-C.GT&&hz<C.ZBK+C.GT)return ['로봇 통로 통과',`옷 폭 ${C.GW} cm · 통로 폭 ${C.HI*2} cm`];
+        if(P.mode==='w'&&hz>C.ZF+4)return ['직선 이송','벽방향 봉이 고리 안을 통과 중'];
+        return ['직선 이송','대기봉에서 빠져나옴 · 그리퍼가 단독 지지'];}
+      const deg=fmt(r.a*180/Math.PI,0);
+      if(r.seg===1)return ['꺾임 구간 통과',r.a>1.1?`옷걸이 ${deg}° 회전 · 가로형 봉이 고리 끝 아래로 들어오는 중`:`로봇 뒤에서 레일 곡선을 따라 옷걸이 ${deg}° 회전`];
+      return ['가로형 봉을 따라 이동',P.mode==='h'&&P.split!=='none'&&dum.length?'쟁기가 앞서 기존 옷을 밀어 자리를 확보하는 중 · 남은 여유 '+fmt(st.room)+' cm':'봉이 고리 끝 아래, 목 옆을 지나는 중'];}
+    case 'verify':return ['결합 확인',st.led?'어댑터 접촉 센서 ON · 결합됨 → 이송 시작':'어댑터가 집게 홈에 안착했는지 접촉 센서로 확인 중'];
+    case 'insert':return ['벌려진 틈에 삽입','쟁기가 확보한 자리로 옷걸이를 밀어 넣음 · 쟁기 끝은 제자리 유지'];
+    case 'split':if(P.split==='A')return ['쟁기 신장 · 먼저 가르기','그리퍼 선단 쟁기가 슬라이드로 앞서 나가 기존 옷을 밀어 틈 확보 (옷걸이는 틈 밖에서 대기)'];return ['벌림판 선행 이동','별도 캐리지가 보를 따라 먼저 들어가 기존 옷을 밀어 자리를 확보 (추가 구동축 1)'];
+    case 'unsplit':return ['벌림 장치 복귀','쟁기를 위로 들어 올려 방금 걸린 옷걸이와 겹치지 않게 빠짐'];
+    case 'release':return ['집게 열림','옷걸이를 놓음 · 센서 OFF'];
+    case 'drop':return h.stage==='fall'?['낙하','고리 안쪽이 봉에 닿을 때까지 떨어짐 (슬로모션)']:['걸림','고리가 봉을 타고 미끄러져 꼭대기에 자리잡음'];
+    case 'done':return ['완료',`${st.done}벌 이송`+(st.unreach?` · ${st.unreach}벌 도달 불가`:'')];
+  }
+  return ['다음 옷걸이 선택',''];
+}
+const stepsEls=[...document.querySelectorAll('#steps li')];
+let lastHud=0;
+function updateHud(now){
+  if(now-lastHud<90)return; lastHud=now;
+  const [t,s]=phaseText(), i=stepIdx();
+  $('hPh').textContent=t; $('hSub').textContent=s; $('hN').textContent=i>=0?String(i+1):'';
+  stepsEls.forEach((li,k)=>{li.classList.toggle('on',k===i);li.classList.toggle('skip',k===6&&!(P.split!=='none'&&P.mode==='h'));});
+  $('nDone').textContent=st.done;
+  const c=st.cur&&st.cur.state==='carried'?railAt(st.gs):null;
+  $('nYaw').textContent=c?fmt(c.a*180/Math.PI,0)+'°':'–';
+  $('nPhi').textContent=fmt((((st.phi*180/Math.PI)%360)+360)%360,0)+'°';
+  $('nS').textContent=fmt(st.gs,1);
+  renderChecks();
+}
+function cls(v,warnBelow){return v<=0?'bad':v<warnBelow?'warn':'ok';}
+let checksKey='';
+function renderChecks(){
+  const c=st.cog||cogCalc(), rows=[];
+  rows.push(['h','간섭']);
+  rows.push(['레일·그리퍼 ↔ 회전 중 옷걸이',st.interf?`${st.interf}회 발생`:'없음',st.interf?'bad':'ok']);
+  rows.push(['회전하는 옷 반경 / 앞기둥까지',`${fmt(G.Rsw)} / ${fmt(G.Rcol)} cm`,cls(G.Rcol-G.Rsw,3)]);
+  rows.push(['로봇 통로 한쪽 여유',`${fmt((C.HI*2-C.GW)/2)} cm`,cls((C.HI*2-C.GW)/2,3)]);
+  rows.push(['옷 밑단 ↔ 섀시 윗면',`${fmt(G.hemClear)} cm`,cls(G.hemClear,5)]);
+  rows.push(['레일 앞쪽 외팔보 길이',`${fmt(C.ZF-P.z0,0)} cm`,C.ZF-P.z0>60?'warn':'ok']);
+  rows.push(['h','고리 걸림']);
+  if(P.mode==='h'){
+    rows.push(['고리 입구 폭 / 봉 지름',`${fmt(G.open*10,1)} / ${fmt(P.dd*10,0)} mm`,cls(G.side,2)]);
+    rows.push(['입구 한쪽 여유',`${fmt(G.side,1)} mm`,cls(G.side,2)]);
+    rows.push(['봉 아래 집게 여유',`${fmt(G.fingerMargin,1)} mm`,cls(G.fingerMargin,3)]);
+    rows.push(['봉 아래 어깨선 여유',`${fmt(G.shMargin,1)} mm`,cls(G.shMargin,3)]);
+    rows.push(['놓은 뒤 총 낙하',`${fmt(G.dropTotal,1)} mm`,'']);
+  }else{
+    rows.push(['고리 상부 여유 (= 낙하 높이)',`${fmt(G.top,1)} mm`,cls(G.top,3)]);
+    rows.push(['고리 하부 여유',`${fmt(G.bot,1)} mm`,cls(G.bot,3)]);
+  }
+  rows.push(['대기봉 끼움 여유',G.fit>0?`${fmt(G.fit,1)} mm`:'안 들어감',cls(G.fit,3)]);
+  rows.push(['목적지 옷 간격 / 옷 두께',`${C.SP} / ${C.GT} cm`,cls(C.SP-C.GT,0.5)]);
+  rows.push(['도달 불가 옷걸이',`${st.unreach}개`,st.unreach?'warn':'ok']);
+  rows.push(['h','그리퍼 · 벌림 장치 (변형)']);
+  const clearJ=(0.62+3.2*Math.sin(P.jaw*D2R)-0.4)*10;
+  rows.push(['집게 펼침 각도 / 어댑터 진입 여유',`${P.jaw}° / ${fmt(clearJ,0)} mm`,cls(clearJ-10,5)]);
+  rows.push(['결합 확인 센서',st.led?'ON (결합됨)':'대기','ok']);
+  if(P.mode==='h'){
+    rows.push(['벌림 방식',P.split==='none'?'없음 (기준)':P.split==='A'?'A 그리퍼 선단 쟁기':'B 별도 벌림판 캐리지','']);
+    rows.push(['추가 구동축',P.split==='B'?'+1 (벌림판 캐리지)':P.split==='A'?'+0.5 (쟁기 신장 소형 슬라이드 16cm)':'0',P.split==='none'?'ok':'warn']);
+    if(dum.length){
+      const minLen=dum.length*(P.td+TDG), roomPlan=slotX(0)-C.GT/2-P.clr-WL-(H_XFAR+1)-minLen;
+      rows.push(['기존 옷 / 최대 압축 길이',`${dum.length}벌 / ${fmt(minLen)} cm`,'']);
+      if(P.split!=='none')rows.push(['첫 자리 기준 쟁기 앞 여유(계획)',`${fmt(roomPlan)} cm`,cls(roomPlan,1)]);
+      rows.push(['쟁기 앞 남은 여유(실행 중)',P.split==='none'?'–':`${fmt(st.room)} cm`,P.split==='none'?'':cls(st.room,1)]);
+      rows.push(['최대 미는 힘 (간이)',P.split==='none'?'–':`${fmt(st.fmax,0)} N / 한계 ${FLIM} N`,P.split==='none'?'':cls(FLIM-st.fmax,FLIM*.3)]);
+      rows.push(['기존 옷과 겹친 횟수',`${st.hitD}회`,st.hitD?'bad':'ok']);
+    }
+  }else rows.push(['벌림 동작','벽방향 봉은 해당 없음','']);
+  rows.push(['h','로봇 안정성']);
+  rows.push(['로봇 질량 (견인 행거 제외)',`${fmt(c.m,1)} kg`,'']);
+  rows.push(['무게중심 높이',`${fmt(c.h,0)} cm`,'']);
+  rows.push(['바퀴 지지면 경계까지 최소 여유',`${fmt(c.margin,1)} cm`,cls(c.margin,8)]);
+  rows.push(['전도 한계 가속도 (정적 근사)',`${fmt(c.acc,2)} m/s²`,cls(c.acc,1.5)]);
+  const key=JSON.stringify(rows); if(key===checksKey)return; checksKey=key;
+  const el=$('checks'); el.innerHTML='';
+  rows.forEach(r=>{if(r[0]==='h'){const h=document.createElement('h3');h.textContent=r[1];el.append(h);return;}
+    const a=document.createElement('span');a.className='l';a.textContent=r[0];const b=document.createElement('span');b.className='v '+r[2];b.textContent=r[1];el.append(a,b);});
+  $('formula').textContent=(P.mode==='h'
+    ?'입구 폭 = 목과 고리 끝 사이 수평 간격. 봉이 이 틈으로 올라가야 걸리므로 입구 폭 > 봉 지름이어야 함. '
+    :'하부 여유 = 고리 내경 − 목적지 봉 지름 − 낙하 높이. ')+'전도 한계 가속도 = g × 최소 여유 ÷ 무게중심 높이. 이동 중 가감속을 이 값 아래로 제한해야 함.';
+}
+function updateHookText(){
+  const t=P.mode==='h'
+    ?`가로형 봉이 고리 끝 아래 ${fmt(P.gap*10,0)} mm, 목 옆을 지나다 멈춘 뒤 집게가 열리면 ${fmt((G.yc-G.yr)*10,1)} mm 떨어져 고리 안쪽에 닿고, 고리를 타고 미끄러져 꼭대기에 걸립니다.`
+    :`벽방향 봉은 끝이 열려 있어 고리 안으로 진입합니다. 집게가 열리면 ${fmt(G.top,0)} mm 떨어져 걸립니다.`;
+  $('hookTxt').textContent=t; drawHook();
+}
+function syncLabels(){
+  $('lLg').textContent=$('sLg').value+' cm';
+  $('lRin').textContent=$('sRin').value+' mm'; $('lTip').textContent=$('sTip').value+'°'; $('lDd').textContent=$('sDd').value+' mm';
+  $('lGap').textContent=$('sGap').value+' mm'; $('lDrop').textContent=$('sDrop').value+' mm';
+  $('lDw').textContent=$('sDw').value+' mm'; $('lZ0').textContent=$('sZ0').value+' cm';
+  $('lNd').textContent=$('sNd').value+' 벌';$('lPd').textContent=(+$('sPd').value/10).toFixed(1)+' cm';$('lTd').textContent=(+$('sTd').value/10).toFixed(1)+' cm';$('lClr').textContent=(+$('sClr').value/10).toFixed(1)+' cm';$('lJaw').textContent=$('sJaw').value+'°';
+  $('fGap').hidden=P.mode!=='h'; $('fDrop').hidden=P.mode!=='w';
+}
+function readParams(){P.lg=+$('sLg').value;P.rin=+$('sRin').value/20;P.tip=+$('sTip').value;P.dd=+$('sDd').value/10;P.gap=+$('sGap').value/10;P.drop=+$('sDrop').value/10;P.dw=+$('sDw').value/10;P.z0=+$('sZ0').value;P.nd=+$('sNd').value;P.pd=+$('sPd').value/10;P.td=+$('sTd').value/10;P.clr=+$('sClr').value/10;P.jaw=+$('sJaw').value;}
+function rebuildAll(){readParams();computeGeo();syncLabels();buildHangerGeom();buildRack();buildRobot();buildRail();buildDest();initHangers();resetState();checksKey='';renderChecks();updateHookText();arrowG.scale.z=P.dir;}
+['sLg','sRin','sTip','sDd','sGap','sDrop','sDw','sZ0','sNd','sPd','sTd','sClr','sJaw'].forEach(id=>$(id).addEventListener('input',rebuildAll));
+
+function seg(id,cb){const g=$(id);g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  g.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));cb(b.dataset.v);});}
+seg('speed',v=>{P.speed=+v;});
+seg('split',v=>{P.split=v;rebuildAll();});
+seg('mode',v=>{P.mode=v;rebuildAll();});
+seg('dir',v=>{P.dir=+v;arrowG.scale.z=P.dir;log(`회전 방향: ${P.dir>0?'화살표 방향':'반대 방향'}`);});
+$('clothes').addEventListener('click',e=>{P.clothes=!P.clothes;e.currentTarget.setAttribute('aria-pressed',String(P.clothes));});
+
+function syncPlay(){$('play').textContent=playing?'일시정지':'재생';}
+$('play').addEventListener('click',()=>{if(st.phase==='done'){rebuildAll();playing=true;}else playing=!playing;stepMode=false;syncPlay();});
+$('step').addEventListener('click',()=>{if(st.phase==='done')return;playing=true;stepMode=true;syncPlay();});
+$('reset').addEventListener('click',()=>{rebuildAll();});
+
+/* rotation arrow above the rack */
+const arrowG=new THREE.Group(); arrowG.position.y=30; rackG.parent.add(arrowG);
+(function(){const R=22,arc=2.2;const t=new THREE.Mesh(new THREE.TorusGeometry(R,.5,8,48,arc),M.arrow);t.rotation.x=Math.PI/2;arrowG.add(t);
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(1.6,4,14),M.arrow);cone.position.set(R*Math.cos(arc),0,R*Math.sin(arc));
+  cone.quaternion.setFromUnitVectors(UP,V(-Math.sin(arc),0,Math.cos(arc)));arrowG.add(cone);})();
+
+/* ---------- camera views ---------- */
+function views(){
+  const dz=C.ZB+C.RB+C.ARM+G.delta;
+  return {iso:{p:[330,110,440],t:[-20,-70,80]},top:{p:[-20,720,80.01],t:[-20,-60,80]},side:{p:[720,-60,80],t:[0,-60,80]},
+    back:{p:[-20,-40,720],t:[-20,-65,100]},
+    drop:P.mode==='h'?{p:[-15,6,dz+2],t:[-55,-5,dz+1]}:{p:[45,4,135],t:[0,-5,150]}};
+}
+let tween=null;
+function goView(k,instant){
+  document.querySelectorAll('.views button[id^="v-"]').forEach(b=>b.setAttribute('aria-pressed',String(b.id==='v-'+k)));
+  const v=views()[k];
+  if(instant){camera.position.set(...v.p);controls.target.set(...v.t);controls.update();return;}
+  tween={p0:camera.position.clone(),t0:controls.target.clone(),p1:V(...v.p),t1:V(...v.t),t:0};
+}
+['iso','top','side','back','drop'].forEach(k=>$('v-'+k).addEventListener('click',()=>goView(k)));
+
+function resize(){const w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(view);
+
+/* ---------- loop ---------- */
+let last=performance.now(), lastRobotZ=null;
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  let sdt=0;
+  if(playing&&st.phase!=='done'){sdt=dt*P.speed;let rem=sdt;while(rem>1e-6){const d=Math.min(rem,.016);update(d);rem-=d;if(!playing)break;}}
+  if(tween){tween.t=Math.min(1,tween.t+dt/.8);const e=ease(tween.t);camera.position.lerpVectors(tween.p0,tween.p1,e);controls.target.lerpVectors(tween.t0,tween.t1,e);if(tween.t>=1)tween=null;}
+  unitG.position.z=st.uz; robotG.position.z=st.rdz; carousel.rotation.y=-st.phi;
+  if(pinion)pinion.rotation.y=st.phi*C.RG/C.RP;
+  const rz=st.uz+st.rdz; if(lastRobotZ!==null){const d=rz-lastRobotZ;wheels.forEach(w=>w.rotation.x+=d/7);} lastRobotZ=rz;
+  poseGrip(); splitStep(); placeHangers(sdt); checkInterference();
+  st.cog=cogCalc(); cogMark.position.set(st.cog.x,st.cog.y,st.cog.z);
+  cogLine.geometry.setFromPoints([V(st.cog.x,st.cog.y,st.cog.z),V(st.cog.x,F+0.3,st.cog.z)]);
+  updateHud(now);
+  controls.update(); renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+
+if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)playing=false;
+rebuildAll(); syncPlay(); goView('iso',true); resize(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
