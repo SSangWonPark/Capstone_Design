@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>자율 재진열 로봇 · 가득 찬 매대에 나무 옷걸이 걸기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#EDEFEA;--panel:#F8F9F6;--ink:#1E2430;--muted:#5B6370;--line:#D5D9D1;--accent:#534AB7;--accent-bg:#E4E2FA;--accent-ink:#3C3489;--on-accent:#FFFFFF;--teal:#1D9E75;--coral:#D85A30;--purple:#7F77DD;--wood:#C99A5B;--done:#0F6E56;--done-bg:#DDF1E8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#15181D;--panel:#1D2127;--ink:#E8EBE6;--muted:#9AA3AE;--line:#2E343C;--accent:#AFA9EC;--accent-bg:#2C2766;--accent-ink:#CECBF6;--on-accent:#1E1A4A;--done:#5DCAA5;--done-bg:#0E3A2F}}
+:root[data-theme="dark"]{--paper:#15181D;--panel:#1D2127;--ink:#E8EBE6;--muted:#9AA3AE;--line:#2E343C;--accent:#AFA9EC;--accent-bg:#2C2766;--accent-ink:#CECBF6;--on-accent:#1E1A4A;--done:#5DCAA5;--done-bg:#0E3A2F}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:15px;line-height:1.65}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+header.top{padding:26px 0 14px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:flex-end;justify-content:space-between}
+header.top h1{margin:0;font-size:24px;font-weight:600;letter-spacing:-0.01em;line-height:1.3}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:640px}
+.team{font-size:13px;color:var(--muted)}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px}
+@media (max-width:920px){.stage{grid-template-columns:minmax(0,1fr)}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.bar .hint{margin-left:auto;font-size:12px;color:var(--muted)}
+button,select{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:5px;padding:5px 10px;cursor:pointer}
+button:hover,select:hover{border-color:var(--muted)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.on{background:var(--accent-bg);color:var(--accent-ink);border-color:transparent}
+button.go{background:var(--accent);color:var(--on-accent);border-color:transparent;font-weight:500}
+#view{position:relative;height:560px;overflow:hidden;touch-action:none;cursor:grab}
+@media (max-width:600px){#view{height:430px}}
+#view canvas{display:block}
+.lbl{position:absolute;left:0;top:0;font-size:12px;line-height:1.3;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 6px;white-space:nowrap;pointer-events:none;transform:translate(-50%,-125%)}
+.lbl.new{border-color:var(--coral)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+aside.box{display:flex;flex-direction:column}
+.now{padding:16px 16px 12px;border-bottom:1px solid var(--line)}
+.now .cnt{font-size:12px;color:var(--accent);font-weight:500}
+.now h2{margin:2px 0 6px;font-size:18px;font-weight:600;line-height:1.35}
+.now p{margin:0;font-size:14px;color:var(--muted);min-height:6.6em}
+.ctl{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:center}
+.ctl select{margin-left:auto}
+ol.steps{list-style:none;margin:0;padding:8px;overflow:auto;max-height:340px}
+ol.steps button{width:100%;display:flex;gap:10px;align-items:center;text-align:left;border:none;border-radius:4px;padding:6px 8px;font-size:13.5px}
+ol.steps .n{flex:none;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;background:var(--paper);color:var(--muted)}
+ol.steps li.done .n{background:var(--done-bg);color:var(--done)}
+ol.steps li.act button{background:var(--accent-bg);color:var(--accent-ink)}
+ol.steps li.act .n{background:var(--accent);color:var(--on-accent)}
+ol.steps .tag{margin-left:auto;font-size:11px;color:var(--coral)}
+section.changes{padding:34px 0 10px}
+section.changes h2{font-size:20px;font-weight:600;margin:0 0 4px}
+section.changes > .wrap > p{margin:0 0 16px;color:var(--muted);max-width:680px}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+.chg{padding:16px 16px 14px;border-left:3px solid var(--purple);border-radius:0;background:var(--panel)}
+.chg.sp{border-left-color:var(--coral)}
+.chg.ct{border-left-color:var(--muted)}
+.chg h3{margin:0 0 8px;font-size:16px;font-weight:600}
+.chg dl{margin:0}
+.chg dt{font-size:12px;color:var(--muted);margin-top:8px}
+.chg dd{margin:2px 0 0;font-size:14px}
+section.todo{padding:22px 0 40px}
+section.todo h2{font-size:17px;font-weight:600;margin:0 0 8px}
+section.todo ul{margin:0;padding-left:18px;max-width:780px}
+section.todo li{margin:4px 0}
+footer{padding:0 0 30px;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header class="wrap top">
+<div>
+<h1>옷이 가득 찬 매대에 나무 옷걸이 다시 걸기</h1>
+<p>고리와 삼각 몸체로 된 옷걸이를 카트에서 꺼내, 빈틈 없는 매대 봉에 자리를 만들어 거는 12단계 동작이에요.</p>
+</div>
+<div class="team">캡스톤 디자인 2조 · 의류 순환을 위한 자율 재진열 로봇</div>
+</header>
+
+<main class="wrap stage">
+<div class="box">
+<div class="bar">
+<button data-cam="iso" class="on">비스듬히</button>
+<button data-cam="side">진행 방향에서</button>
+<button data-cam="top">위에서</button>
+<button id="lblBtn" class="on">이름표</button>
+<span class="hint">드래그로 회전, 휠로 확대</span>
+</div>
+<div id="view" aria-label="재진열 로봇 3D 모델"></div>
+<div class="legend">
+<span><i style="background:#B4B2A9"></i>수동 카트와 기존 매대</span>
+<span><i style="background:#1D9E75"></i>로봇 몸체와 기둥</span>
+<span><i style="background:#7F77DD"></i>그리퍼 암</span>
+<span><i style="background:#D85A30"></i>스프레더 암 (새로 추가)</span>
+<span><i style="background:#C99A5B"></i>나무 옷걸이</span>
+<span><i style="background:#AFA9EC"></i>옮기는 옷</span>
+</div>
+</div>
+
+<aside class="box">
+<div class="now">
+<div class="cnt" id="cnt">준비</div>
+<h2 id="ttl">재생을 눌러 시작하세요</h2>
+<p id="dsc">카트를 실은 로봇이 매대 옆으로 달려와, 스프레더로 자리를 만든 뒤 그리퍼로 옷을 거는 과정을 단계별로 보여줘요. 단계 이름을 누르면 그 단계부터 볼 수 있어요.</p>
+</div>
+<div class="ctl">
+<button id="play" class="go">재생</button>
+<button id="prev">이전</button>
+<button id="next">다음</button>
+<button id="reset">처음으로</button>
+<select id="spd" aria-label="재생 속도"><option value="0.6">느리게</option><option value="1" selected>보통</option><option value="1.6">빠르게</option></select>
+</div>
+<ol class="steps" id="steps"></ol>
+</aside>
+</main>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+var view=document.getElementById('view');
+function W(){return view.clientWidth||800}function H(){return view.clientHeight||560}
+var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(W(),H());renderer.setClearColor(0x000000,0);
+view.appendChild(renderer.domElement);
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(34,W()/H(),0.05,50);
+scene.add(new THREE.AmbientLight(0xffffff,0.62));
+var l1=new THREE.DirectionalLight(0xffffff,0.55);l1.position.set(-2,4,-3);scene.add(l1);
+var l2=new THREE.DirectionalLight(0xffffff,0.28);l2.position.set(3,2,4);scene.add(l2);
+var grid=new THREE.GridHelper(6,24,0x888780,0x888780);grid.material.transparent=true;grid.material.opacity=0.2;scene.add(grid);
+function M(c){return new THREE.MeshLambertMaterial({color:c})}
+var edgeMat=new THREE.LineBasicMaterial({color:0x2C2C2A,transparent:true,opacity:0.25});
+function box(w,h,d,mat,x,y,z,p,edge){var g=new THREE.BoxGeometry(w,h,d);var m=new THREE.Mesh(g,mat);m.position.set(x,y,z);if(edge)m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g),edgeMat));p.add(m);return m}
+function cyl(r,h,mat,x,y,z,p,axis){var m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,20),mat);if(axis==='x')m.rotation.z=Math.PI/2;if(axis==='z')m.rotation.x=Math.PI/2;m.position.set(x,y,z);p.add(m);return m}
+var gL=M(0xB4B2A9),gD=M(0x888780),tL=M(0x1D9E75),tD=M(0x0F6E56),pL=M(0x7F77DD),pD=M(0x534AB7),cL=M(0xF0997B),cD=M(0xD85A30),wood=M(0xC99A5B),metal=M(0x9A9993);
+var acrylic=new THREE.MeshLambertMaterial({color:0xCECBF6,transparent:true,opacity:0.3,depthWrite:false});
+var torusGeo=new THREE.TorusGeometry(0.02,0.0028,8,24,Math.PI*1.25);
+var armGeo=new THREE.BoxGeometry(0.034,0.028,0.245);
+var barGeo=new THREE.CylinderGeometry(0.007,0.007,0.40,12);
+var neckGeo=new THREE.BoxGeometry(0.03,0.04,0.05);
+var shankGeo=new THREE.CylinderGeometry(0.0028,0.0028,0.045,8);
+var ANG=Math.atan2(0.10,0.22);
+function hanger(color,h,p){
+var g=new THREE.Group();
+var hk=new THREE.Group();var t=new THREE.Mesh(torusGeo,metal);t.rotation.z=-Math.PI/4;hk.add(t);hk.rotation.y=-Math.PI/2;g.add(hk);
+var sh=new THREE.Mesh(shankGeo,metal);sh.position.set(0,-0.0225,-0.02);g.add(sh);
+var nk=new THREE.Mesh(neckGeo,wood);nk.position.set(0,-0.065,-0.02);g.add(nk);
+[1,-1].forEach(function(s){var a=new THREE.Mesh(armGeo,wood);a.position.set(0,-0.13,-0.02+s*0.11);a.rotation.x=s*ANG;g.add(a)});
+var b=new THREE.Mesh(barGeo,wood);b.rotation.x=Math.PI/2;b.position.set(0,-0.185,-0.02);g.add(b);
+var body=new THREE.Mesh(new THREE.BoxGeometry(0.045,h,0.42),M(color));body.position.set(0,-0.10-h/2,-0.02);g.add(body);
+p.add(g);return g}
+
+var R=0.55,T=0.05,TARGET=0xAFA9EC;
+var train=new THREE.Group();scene.add(train);
+[0.30,-0.30].forEach(function(z){box(1.13,0.03,0.03,gL,0,0.33,z,train,true)});
+[0.55,-0.55,0.35,-0.35].forEach(function(x){box(0.03,0.03,0.63,gL,x,0.33,0,train,true)});
+[[0.55,0.30],[0.55,-0.30],[-0.55,0.30],[-0.55,-0.30]].forEach(function(a){box(0.03,0.25,0.03,gL,a[0],0.19,a[1],train,true);cyl(0.04,0.03,gD,a[0],0.045,a[1],train,'z')});
+box(0.04,1.37,0.04,gL,-0.55,1.015,0,train,true);
+box(0.04,1.505,0.04,gL,0.55,1.0825,0,train,true);
+box(0.12,0.11,0.01,gD,0.55,1.89,0.026,train,true);box(0.12,0.11,0.01,gD,0.55,1.89,-0.026,train,true);
+box(0.12,0.01,0.062,gD,0.55,1.84,0,train,true);box(0.12,0.01,0.062,gD,0.55,1.94,0,train,true);
+cyl(0.01,1.08,gD,0,1.50,0,train,'x');
+var k,x;
+for(k=0;k<=10;k++){x=-0.50+0.10*k;box(0.006,0.03,0.024,gD,x,1.505,0,train,false);box(0.004,0.22,0.46,acrylic,x,1.36,-0.02,train,false)}
+var cartCols=[0xD3D1C7,0xB4B2A9,0xC9C7BD,0x9C9A92];var slotH=null;
+for(k=0;k<10;k++){x=-0.45+0.1*k;var hh=hanger(k===5?TARGET:cartCols[k%4],k===5?0.66:0.52+((k*37)%5)*0.05,train);hh.position.set(x,1.50,0);if(k===5)slotH=hh}
+
+box(1.22,0.20,0.48,tL,-0.11,0.15,0,train,true);
+[0.265,-0.265].forEach(function(z){cyl(0.075,0.05,tD,-0.11,0.075,z,train,'z')});
+[[0.42,0.18],[0.42,-0.18],[-0.62,0.18],[-0.62,-0.18]].forEach(function(a){var s=new THREE.Mesh(new THREE.SphereGeometry(0.03,12,10),tD);s.position.set(a[0],0.03,a[1]);train.add(s)});
+cyl(0.045,0.04,tD,0.42,0.27,0,train);
+[0.35,-0.35].forEach(function(px){cyl(0.015,0.07,tD,px,0.285,0,train)});
+box(0.10,1.68,0.12,tL,-0.67,1.09,0,train,true);
+box(0.01,0.14,0.09,tD,-0.615,1.25,0,train,false);
+box(1.32,0.08,0.04,pD,-0.06,1.89,0,train,true);
+
+var cg=new THREE.Group();train.add(cg);
+box(0.14,0.12,0.09,pL,0,0,0,cg,true);
+box(0.10,0.01,0.07,pD,0,-0.065,0,cg,false);
+box(0.06,0.03,0.40,pD,0,-0.10,-0.27,cg,true);
+var g1=box(0.05,0.025,0.40,pL,0,-0.125,-0.27,cg,true);
+var g2=box(0.04,0.022,0.40,pD,0,-0.147,-0.27,cg,true);
+var gz=box(0.025,1,0.025,pD,0,0,0,cg,false);
+var gh=box(0.05,0.03,0.055,pD,0,0,0,cg,true);
+var pa=box(0.008,0.04,0.06,pL,0,0,0,cg,true),pb=box(0.008,0.04,0.06,pL,0,0,0,cg,true);
+box(0.05,0.03,0.42,cD,0.13,-0.21,-0.06,cg,true);
+var s1=box(0.042,0.025,0.42,cL,0.13,-0.232,-0.06,cg,true);
+var s2=box(0.034,0.022,0.42,cD,0.13,-0.252,-0.06,cg,true);
+var sb=box(0.26,0.03,0.03,cL,0.005,-0.275,0.15,cg,true);
+var fa=box(0.006,0.14,0.10,cD,0,0,0,cg,true),fb=box(0.006,0.14,0.10,cD,0,0,0,cg,true);
+
+cyl(0.0125,1.95,gD,T,1.45,R,scene,'x');
+[T-0.98,T+0.98].forEach(function(px){box(0.04,1.45,0.04,gL,px,0.725,R,scene,true);box(0.04,0.03,0.55,gL,px,0.015,R,scene,true)});
+var rackCols=[0xE3E1D8,0xD3D1C7,0xC9C7BD,0xDAD8CF];var rackH=[];
+for(k=0;k<16;k++){[1,-1].forEach(function(s,j){var base=T+s*(0.025+0.05*k);var r=hanger(rackCols[(k*2+j)%4],0.56+((k*13+j*7)%5)*0.05,scene);r.position.set(base,1.45,R);rackH.push({g:r,base:base})})}
+var placedH=hanger(TARGET,0.66,scene);placedH.position.set(T,1.45,R);placedH.visible=false;
+var heldH=hanger(TARGET,0.66,scene);heldH.visible=false;
+
+var STEPS=[
+{t:'매대 옆에 정렬',d:'카트를 실은 로봇이 매대와 나란히 달려와 멈춰요. 걸 위치와 옷이 있는 카트 슬롯이 같은 X 위치에 오도록 주행으로 맞추고, 캐리지도 그 슬롯 위로 옮겨요.',to:{tx:0,cx:0.05},ms:2300},
+{t:'RFID로 대상 확인',d:'캐리지 아래 안테나가 바로 밑 슬롯의 태그를 읽어, 이 옷이 이 매대 상품인지 확인해요. 보라색 옷이 이번에 옮길 옷이에요.',to:{},ms:1000},
+{t:'스프레더 암 펼치기',d:'옷을 집기 전에 아래쪽 스프레더 암이 먼저 매대 봉 위까지 뻗어요. 쐐기 핑거는 들린 상태라 매대 고리 위를 지나가요.',to:{s:0.60},ms:1500,sp:1},
+{t:'쐐기 핑거 넣기',d:'오므린 두 핑거가 봉 바로 위로 내려와 빽빽한 고리 사이에 끼워져요. 끝이 얇은 쐐기라 틈을 비집고 들어가요.',to:{sz:1},ms:900,sp:1},
+{t:'틈 벌리기',d:'핑거가 양옆으로 벌어지며 옷걸이를 봉을 따라 밀어내요. 옷걸이가 통째로 밀리니 어깨와 옷 몸통까지 모든 높이에서 약 15cm 틈이 생겨요. 핑거는 걸기가 끝날 때까지 이 자리를 지켜요.',to:{sf:0.09,ro:0.075},ms:1500,sp:1},
+{t:'나무 목 블록 집기',d:'그리퍼가 칸막이 사이로 내려와 고리 바로 아래 나무 목 블록을 V자 패드로 집어요. 돌아가는 금속 고리가 아니라 나무를 잡아서 옷걸이 방향이 고정돼요.',to:{gy:1.435},set:{go:0,hold:1},ms:1300},
+{t:'5cm 들어 올리기',d:'고리가 빗살 홈에서 빠질 만큼만 올려요. 양옆 칸막이 덕분에 굽은 어깨가 이웃 옷걸이와 엉키지 않아요.',to:{gy:1.485},ms:800},
+{t:'옆으로 옮기기',d:'옷걸이를 자기 평면 방향으로 밀어 카트 밖으로 꺼내고, 핑거가 벌려 둔 틈 위까지 가져가요. 고리는 봉보다 10cm 높게 유지해요.',to:{g:0.48},ms:2000},
+{t:'내려서 걸기',d:'그대로 내리면 봉이 고리 안으로 들어가고 무게가 봉으로 넘어가요. 그다음 그리퍼를 열어요.',to:{gy:1.385},set:{go:1,hold:0,placed:1},ms:1100},
+{t:'그리퍼 접기',d:'그리퍼 암을 먼저 접어 카트 위로 돌아와요. 열린 패드가 나무 목 블록 양옆으로 빠져나와요.',to:{g:-0.07,gy:1.60},ms:1600},
+{t:'핑거 빼기',d:'핑거를 오므리며 들어 올려요. 밀려났던 옷걸이들이 새로 건 옷 양옆으로 다시 모여요.',to:{sz:0,sf:0.006,ro:0.03},ms:1000,sp:1},
+{t:'스프레더 접기',d:'스프레더 암을 접고 다음 옷으로 넘어가요. 같은 매대에 걸 옷이 더 있으면 1단계부터 반복해요.',to:{s:0.15},ms:1400,sp:1}
+];
+var S0={tx:-1.1,cx:0.30,s:0.15,sz:0,sf:0.006,g:-0.07,gy:1.60,go:1,hold:0,placed:0,ro:0};
+var starts=[];(function(){var st=Object.assign({},S0);STEPS.forEach(function(p){starts.push(Object.assign({},st));Object.assign(st,p.to,p.set||{})})})();
+var S=Object.assign({},S0),idx=-1,anim=null,auto=false,speed=1;
+
+function apply(){
+train.position.x=S.tx;cg.position.set(S.cx,1.89,0);
+var eg=S.g+0.07;g1.position.z=-0.27+eg/2;g2.position.z=-0.27+eg;
+var top=1.74,bot=S.gy+0.015,len=Math.max(0.01,top-bot);gz.scale.y=len;gz.position.set(0,(top+bot)/2-1.89,S.g);
+gh.position.set(0,S.gy-1.89,S.g-0.0075);
+var ox=0.019+0.02*S.go;pa.position.set(ox,S.gy-1.89,S.g+0.045);pb.position.set(-ox,S.gy-1.89,S.g+0.045);
+var es=S.s-0.15;s1.position.z=-0.06+es/2;s2.position.z=-0.06+es;sb.position.z=S.s;
+var fbot=1.575-0.107*S.sz;fa.position.set(S.sf,fbot+0.07-1.89,S.s-0.05);fb.position.set(-S.sf,fbot+0.07-1.89,S.s-0.05);
+rackH.forEach(function(o){var d=o.base-T;o.g.position.x=o.base+Math.sign(d)*S.ro*Math.max(0,1-Math.abs(d)/0.7)});
+slotH.visible=!S.hold&&!S.placed;heldH.visible=!!S.hold;placedH.visible=!!S.placed;
+heldH.position.set(S.tx+S.cx,S.gy+0.065,S.g+0.07);
+}
+
+var labels=[],showLbl=true;
+function lab(text,f,vis,isNew){var d=document.createElement('div');d.className='lbl'+(isNew?' new':'');d.textContent=text;view.appendChild(d);labels.push({d:d,f:f,vis:vis})}
+lab('수동 카트 (칸막이 10cm)',function(){return[S.tx+0.55,1.18,-0.32]});
+lab('나무 옷걸이: 고리 + 삼각 몸체',function(){return[S.tx+0.35,1.53,0]});
+lab('그리퍼 암',function(){return[S.tx+S.cx,1.80,-0.42]});
+lab('스프레더 암',function(){return[S.tx+S.cx+0.13,1.69,-0.06+(S.s-0.15)*0.6]},null,true);
+lab('쐐기 핑거',function(){return[S.tx+S.cx+S.sf,1.575-0.107*S.sz+0.15,S.s-0.05]},function(){return S.s>0.4},true);
+lab('기존 매대 (빈틈 없음)',function(){return[-0.62,1.52,R]});
+lab('로봇 몸체',function(){return[S.tx+0.25,0.27,-0.24]});
+
+var cam={th:2.35,ph:0.32,r:4.3},camT={th:2.35,ph:0.32,r:4.3},tgt=new THREE.Vector3(0,1.05,0.22);
+var presets={iso:{th:2.35,ph:0.32,r:4.3},side:{th:Math.PI/2,ph:0.12,r:3.7},top:{th:Math.PI,ph:1.45,r:3.1}};
+document.querySelectorAll('[data-cam]').forEach(function(b){b.addEventListener('click',function(){var p=presets[b.dataset.cam];camT.th=p.th;camT.ph=p.ph;camT.r=p.r;document.querySelectorAll('[data-cam]').forEach(function(o){o.classList.toggle('on',o===b)})})});
+document.getElementById('lblBtn').addEventListener('click',function(e){showLbl=!showLbl;e.currentTarget.classList.toggle('on',showLbl)});
+var drag=null;
+view.addEventListener('pointerdown',function(e){drag=[e.clientX,e.clientY,camT.th,camT.ph];view.setPointerCapture(e.pointerId);view.style.cursor='grabbing'});
+view.addEventListener('pointermove',function(e){if(!drag)return;camT.th=drag[2]-(e.clientX-drag[0])*0.008;camT.ph=Math.max(0.02,Math.min(1.5,drag[3]+(e.clientY-drag[1])*0.006));cam.th=camT.th;cam.ph=camT.ph});
+function endDrag(){drag=null;view.style.cursor='grab'}
+view.addEventListener('pointerup',endDrag);view.addEventListener('pointercancel',endDrag);
+view.addEventListener('wheel',function(e){e.preventDefault();camT.r=Math.max(1.8,Math.min(8,camT.r*(1+e.deltaY*0.001)))},{passive:false});
+new ResizeObserver(function(){renderer.setSize(W(),H());camera.aspect=W()/H();camera.updateProjectionMatrix()}).observe(view);
+
+var stepsEl=document.getElementById('steps');
+STEPS.forEach(function(p,i){var li=document.createElement('li');var b=document.createElement('button');b.innerHTML='<span class="n">'+(i+1)+'</span><span>'+p.t+'</span>'+(p.sp?'<span class="tag">스프레더</span>':'');b.addEventListener('click',function(){auto=false;startStep(i,true)});li.appendChild(b);stepsEl.appendChild(li)});
+var cntEl=document.getElementById('cnt'),ttlEl=document.getElementById('ttl'),dscEl=document.getElementById('dsc'),playBtn=document.getElementById('play');
+function render(){
+var lis=stepsEl.children;for(var i=0;i<lis.length;i++){lis[i].classList.toggle('act',i===idx);lis[i].classList.toggle('done',i<idx||(i===idx&&!anim))}
+if(idx>=0){cntEl.textContent=(idx+1)+' / '+STEPS.length+'단계';ttlEl.textContent=STEPS[idx].t;dscEl.textContent=STEPS[idx].d}
+playBtn.textContent=auto?'일시정지':(idx>=STEPS.length-1&&!anim?'다시 재생':'재생');
+}
+function startStep(i,snap){if(i<0||i>=STEPS.length)return;idx=i;if(snap)S=Object.assign({},starts[i]);anim={from:Object.assign({},S),to:STEPS[i].to,set:STEPS[i].set,ms:STEPS[i].ms/speed,t0:performance.now()};render();var li=stepsEl.children[i];if(li&&li.scrollIntoView)li.scrollIntoView({block:'nearest'})}
+function finishAnim(){if(!anim)return;Object.assign(S,anim.to,anim.set||{});anim=null}
+playBtn.addEventListener('click',function(){
+if(auto){auto=false;render();return}
+auto=true;
+if(idx>=STEPS.length-1&&!anim){S=Object.assign({},S0);idx=-1;startStep(0)}
+else if(!anim)startStep(idx+1);
+render()});
+document.getElementById('next').addEventListener('click',function(){auto=false;finishAnim();if(idx<STEPS.length-1)startStep(idx+1);else render()});
+document.getElementById('prev').addEventListener('click',function(){auto=false;if(idx<=0){finishAnim();S=Object.assign({},S0);idx=-1;anim=null;render();cntEl.textContent='준비';return}startStep(idx-1,true)});
+document.getElementById('reset').addEventListener('click',function(){auto=false;anim=null;S=Object.assign({},S0);idx=-1;render();cntEl.textContent='준비';ttlEl.textContent='재생을 눌러 시작하세요'});
+document.getElementById('spd').addEventListener('change',function(e){speed=parseFloat(e.target.value)||1});
+
+var v=new THREE.Vector3();
+function loop(now){
+if(anim){var kk=Math.min(1,(now-anim.t0)/anim.ms);var e=kk<0.5?2*kk*kk:1-Math.pow(-2*kk+2,2)/2;for(var key in anim.to)S[key]=anim.from[key]+(anim.to[key]-anim.from[key])*e;
+if(kk>=1){Object.assign(S,anim.set||{});anim=null;render();if(auto){if(idx<STEPS.length-1){setTimeout(function(){if(auto&&!anim)startStep(idx+1)},380)}else{auto=false;render()}}}}
+apply();
+cam.th+=(camT.th-cam.th)*0.12;cam.ph+=(camT.ph-cam.ph)*0.12;cam.r+=(camT.r-cam.r)*0.12;
+camera.position.set(tgt.x+cam.r*Math.cos(cam.ph)*Math.sin(cam.th),tgt.y+cam.r*Math.sin(cam.ph),tgt.z+cam.r*Math.cos(cam.ph)*Math.cos(cam.th));camera.lookAt(tgt);
+renderer.render(scene,camera);
+var w=W(),h=H();
+labels.forEach(function(l){var ok=showLbl&&(!l.vis||l.vis());if(ok){v.set.apply(v,l.f()).project(camera);ok=v.z<1;}l.d.style.display=ok?'block':'none';if(ok){l.d.style.left=((v.x*0.5+0.5)*w)+'px';l.d.style.top=((-v.y*0.5+0.5)*h)+'px'}});
+requestAnimationFrame(loop)}
+apply();render();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
