@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>나선형 행거 걸기 동작</title>
+<style>
+:root{--bg:#eef0f3;--panel:#ffffff;--text:#1d2125;--muted:#5d6873;--line:#d8dde2;--accent:#0f7c6c;--accent-bg:#e1f4ef;--bad:#b23a32;--bad-bg:#fbeaea;--chip:#f3f5f7}
+@media (prefers-color-scheme:dark){:root{--bg:#14171a;--panel:#1c2024;--text:#e7ebee;--muted:#9ba7b2;--line:#2e343a;--accent:#4cc3ad;--accent-bg:#16332e;--bad:#f08a80;--bad-bg:#3a1c1a;--chip:#252a2f}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 390px;height:100vh}
+#view{position:relative;min-height:420px;overflow:hidden}
+#view canvas{display:block;width:100%;height:100%}
+.hud{position:absolute;left:14px;top:14px;right:14px;max-width:580px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:12px;padding:10px 14px;backdrop-filter:blur(6px)}
+.hud.bad{border-color:color-mix(in srgb,var(--bad) 55%,transparent);background:color-mix(in srgb,var(--bad-bg) 92%,transparent)}
+.hud .ttl{font-size:17px;font-weight:600}
+.hud .sub{color:var(--muted);margin-top:2px}
+.bar{position:absolute;left:14px;right:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.bar .grp{display:flex;gap:4px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:10px;padding:4px}
+button{font:inherit;font-size:13px;border:1px solid transparent;background:transparent;color:var(--text);border-radius:7px;padding:5px 10px;cursor:pointer}
+button:hover{background:var(--chip)}
+button[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+aside{overflow:auto;background:var(--panel);border-left:1px solid var(--line);padding:18px 18px 28px}
+h1{font-size:18px;margin:0 0 4px}
+h2{font-size:15px;margin:22px 0 8px}
+.lead{color:var(--muted);margin:0}
+ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+ol.steps li{display:grid;grid-template-columns:26px 1fr;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;transition:background .2s,border-color .2s}
+ol.steps li .n{width:22px;height:22px;border-radius:50%;background:var(--chip);display:grid;place-items:center;font-size:12px;font-weight:600}
+ol.steps li b{display:block;font-weight:600}
+ol.steps li span{color:var(--muted);font-size:13px}
+ol.steps li.on{background:var(--accent-bg);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+ol.steps li.on .n{background:var(--accent);color:#fff}
+ol.steps li.bad.on{background:var(--bad-bg);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+ol.steps li.bad.on .n{background:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:8px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th{font-weight:600;text-align:right;color:var(--muted);padding:6px 4px;border-bottom:1px solid var(--line)}
+td{border-top:1px solid var(--line);padding:6px 4px;text-align:right}
+th:first-child,td:first-child{text-align:left}
+tr.cur td{background:var(--accent-bg)}
+.note{font-size:13px;color:var(--muted);background:var(--chip);border-radius:10px;padding:10px 12px;margin-top:10px}
+svg text{font-family:inherit}
+@media (max-width:900px){.wrap{grid-template-columns:1fr;height:auto}#view{height:66vh}aside{border-left:none;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="view">
+    <div class="hud" id="hud"><div class="ttl" id="hTtl">준비</div><div class="sub" id="hSub"></div></div>
+    <div class="bar">
+      <div class="grp">
+        <button id="bPlay" aria-pressed="true">일시정지</button>
+        <button id="bStep">다음 단계</button>
+        <button id="bReset">처음부터</button>
+      </div>
+      <div class="grp" id="gSpeed">
+        <button data-v="0.5">0.5×</button><button data-v="1" aria-pressed="true">1×</button><button data-v="2">2×</button>
+      </div>
+      <div class="grp" id="gCam">
+        <button data-v="auto" aria-pressed="true">자동 시점</button>
+        <button data-v="overview">전체</button>
+        <button data-v="hang">걸기 위치 확대</button>
+        <button data-v="top">위에서</button>
+      </div>
+      <div class="grp"><button id="bCloth" aria-pressed="true">옷 표시</button></div>
+    </div>
+  </div>
+  <aside>
+    <h1>나선형 행거 · 걸기 동작</h1>
+    <p class="lead">봉 8개의 길이를 2cm에서 19cm까지 순서대로 늘려, 나중에 건 옷이 항상 앞 옷의 바깥에 겹치게 만든 대기 행거입니다. 봉 윗면의 넓은 판(ㅜ자)이 엉뚱한 곳에 거는 것을 막고, 둥근 끝의 홈이 고리를 정해진 반지름에 고정합니다.</p>
+    <div class="legend">
+      <span><i style="background:#1fa38a"></i>걸림 방지 판 · 끝 홈</span>
+      <span><i style="background:#aab2ba"></i>봉 · 링</span>
+      <span><i style="background:#3ccf6e"></i>다음에 걸 봉 표시등</span>
+      <span><i style="background:#e05a4f"></i>잘못 걸기 예시</span>
+    </div>
+
+    <h2>단계</h2>
+    <ol class="steps" id="steps">
+      <li data-s="1"><div class="n">1</div><div><b>다음 봉을 거는 위치로 회전</b><span>표시등이 켜진 봉이 항상 같은 자리(거는 위치)에 오도록 행거가 45°씩 돕니다</span></div></li>
+      <li data-s="2"><div class="n">2</div><div><b>끝에 걸기</b><span>옆에서 밀어 넣어 둥근 끝을 고리 안으로 넣고 내리면 홈에 앉습니다</span></div></li>
+      <li data-s="3" class="bad"><div class="n">!</div><div><b>잘못 걸기 예시 (5번째)</b><span>판 위에서는 판 폭(60mm)이 고리 폭(52mm)보다 넓어 목이 판에 막힘 → 끝에서만 걸 수 있음</span></div></li>
+      <li data-s="4"><div class="n">4</div><div><b>8벌 완성</b><span>위에서 보면 나선. 빼는 순서는 8 → 1</span></div></li>
+    </ol>
+
+    <h2>봉 하나 (위에서 · 단면)</h2>
+    <svg viewBox="0 0 340 210" width="100%" role="img" aria-label="가장 긴 봉을 위에서 본 모습과 단면. 링에서 17.6cm까지 폭 60mm 판이 덮고, 끝 2cm에서 폭이 20mm로 좁아진 뒤, 둥근 끝 홈이 19cm 위치에 있음. 단면은 지름 25mm 봉 위에 60mm 판을 얹은 ㅜ자">
+      <rect x="10" y="20" width="12" height="80" rx="3" fill="#aab2ba"/>
+      <text x="16" y="114" font-size="11" text-anchor="middle" fill="var(--muted)">링</text>
+      <rect x="22" y="53.5" width="220" height="13" fill="#aab2ba"/>
+      <path d="M22 30 L218 30 L238 50 L238 70 L218 90 L22 90 Z" fill="#1fa38a" fill-opacity=".85" stroke="#0f6e56"/>
+      <rect x="238" y="52" width="6" height="16" fill="#1fa38a" fill-opacity=".85" stroke="#0f6e56"/>
+      <rect x="244" y="54.5" width="16" height="11" fill="#1fa38a" fill-opacity=".55" stroke="#0f6e56"/>
+      <path d="M260 54.5 L268 52.5 L272 52.5 L274 54.5 L274 65.5 L272 67.5 L268 67.5 L260 65.5 Z" fill="#1fa38a" fill-opacity=".85" stroke="#0f6e56"/>
+      <line x1="252" y1="28" x2="252" y2="92" stroke="var(--text)" stroke-width="2.5"/>
+      <text x="120" y="64" font-size="11" text-anchor="middle" fill="#fff">판 폭 60mm</text>
+      <text x="228" y="108" font-size="11" text-anchor="middle" fill="var(--muted)">끝 2cm 좁아짐</text>
+      <text x="262" y="20" font-size="11" text-anchor="middle" fill="var(--text)">고리 · 홈</text>
+      <line x1="22" y1="128" x2="250" y2="128" stroke="var(--muted)"/>
+      <line x1="22" y1="123" x2="22" y2="133" stroke="var(--muted)"/><line x1="252" y1="123" x2="252" y2="133" stroke="var(--muted)"/>
+      <text x="137" y="146" font-size="11" text-anchor="middle" fill="var(--muted)">링 → 홈 중심 19cm (8번 봉)</text>
+      <g transform="translate(300 175)">
+        <rect x="-30" y="-17" width="60" height="5" fill="#1fa38a" stroke="#0f6e56"/>
+        <circle cx="0" cy="0" r="12" fill="#aab2ba" stroke="#5f6b76"/>
+        <text x="0" y="28" font-size="11" text-anchor="middle" fill="var(--muted)">단면 ㅜ</text>
+      </g>
+    </svg>
+
+    <h2>봉 치수</h2>
+    <table id="tbl">
+      <thead><tr><th>봉</th><th>홈 위치(링에서)</th><th>판 길이</th><th>옷 반지름(중심에서)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="note">링 윗면도 같은 폭 60mm 판(고리 모양 링)으로 덮었습니다. 덮지 않으면 손님이 봉 사이의 링에 바로 걸 수 있어 순서가 깨집니다.</div>
+    <div class="note">옷 폭 48cm, 걸린 옷 두께 3cm 기준으로 계산한 길이입니다. 실제 옷걸이 고리 내경을 재서 판 폭을 "고리 내경 + 4mm 이상"으로 정하세요. 치수 단위 cm.</div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const view=$('view');
+const dark=matchMedia('(prefers-color-scheme: dark)').matches;
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+view.insertBefore(renderer.domElement,view.firstChild);
+const scene=new THREE.Scene(); scene.background=new THREE.Color(dark?0x181c20:0xe6e9ed);
+const camera=new THREE.PerspectiveCamera(38,1,0.5,4000);
+const controls=new THREE.OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.dampingFactor=0.08;
+scene.add(new THREE.HemisphereLight(0xffffff,dark?0x30343a:0xb8bec6,dark?0.55:0.7));
+const sun=new THREE.DirectionalLight(0xffffff,0.95); sun.position.set(140,320,170); sun.target.position.set(0,90,0);
+sun.castShadow=true; sun.shadow.mapSize.set(2048,2048);
+const sc=sun.shadow.camera; sc.left=-170; sc.right=170; sc.top=170; sc.bottom=-170; sc.near=50; sc.far=700; sun.shadow.bias=-0.0004;
+scene.add(sun,sun.target);
+const fill=new THREE.DirectionalLight(0xffffff,0.25); fill.position.set(-200,120,-120); scene.add(fill);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:dark?0x24292e:0xd9dde1,roughness:.95}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+const grid=new THREE.GridHelper(600,60,dark?0x343b42:0xc3c9cf,dark?0x2b3137:0xccd1d6); grid.position.y=0.05; scene.add(grid);
+
+const std=(c,m,r)=>new THREE.MeshStandardMaterial({color:c,metalness:m,roughness:r});
+const M={alu:std(0xaab2ba,.55,.35),dark:std(0x3a4148,.3,.55),base:std(0x4e555c,.2,.7),guard:std(0x1fa38a,0,.45),tire:std(0x2a2a2a,0,.9)};
+function mesh(p,g,m,x,y,z){const o=new THREE.Mesh(g,m);o.position.set(x||0,y||0,z||0);o.castShadow=true;o.receiveShadow=true;p.add(o);return o;}
+function box(p,w,h,d,x,y,z,m){return mesh(p,new THREE.BoxGeometry(w,h,d),m,x,y,z);}
+function cylY(p,r,h,x,y,z,m,s){return mesh(p,new THREE.CylinderGeometry(r,r,h,s||28),m,x,y,z);}
+
+/* ---------- dimensions (cm) ---------- */
+const RC=48, YR=160, ROD_R=1.25, HOOK_R=2.6, PLATE_W=6.0, PLATE_T=0.3;
+const L=[2,7,11,14,16,17,18,19];
+const N=L.length, STEP=Math.PI*2/N, HANG_ANG=Math.PI/2;
+const PLATE_TOP=ROD_R+PLATE_T;
+const SEAT_Y=YR+1.45-HOOK_R;
+const plateLen=g=>Math.max(0,g-1.4);
+
+/* table */
+$('tbl').querySelector('tbody').innerHTML=L.map((g,i)=>`<tr data-i="${i}"><td>${i+1}번</td><td>${g}</td><td>${plateLen(g)<0.8?'–':plateLen(g).toFixed(1)}</td><td>${RC+g}</td></tr>`).join('');
+
+/* ---------- hanger stand ---------- */
+const carousel=new THREE.Group(); scene.add(carousel);
+cylY(carousel,35,3,0,11.5,0,M.base,64);
+for(let k=0;k<4;k++){const a=Math.PI/4+k*Math.PI/2,x=Math.cos(a)*29,z=Math.sin(a)*29;box(carousel,3,4,3,x,8,z,M.dark);
+  const w=mesh(carousel,new THREE.CylinderGeometry(4.5,4.5,2.4,24),M.tire,x,4.5,z);w.rotation.z=Math.PI/2;w.rotation.y=a;}
+cylY(carousel,1.6,156,0,91,0,M.alu);
+const ring=mesh(carousel,new THREE.TorusGeometry(RC,ROD_R,14,160),M.alu,0,YR,0); ring.rotation.x=Math.PI/2;
+for(let k=0;k<3;k++){const g=new THREE.Group();g.rotation.y=k*Math.PI*2/3+0.2;carousel.add(g);box(g,1.6,1.2,46,0,YR-0.2,24,M.alu);}
+cylY(carousel,9,1.6,0,167,0,M.dark,48);
+// ring guard (annulus plate on top of the ring)
+const ann=new THREE.Shape(); ann.absarc(0,0,RC+PLATE_W/2,0,Math.PI*2,false);
+const hole=new THREE.Path(); hole.absarc(0,0,RC-PLATE_W/2,0,Math.PI*2,true); ann.holes.push(hole);
+const annGeo=new THREE.ExtrudeGeometry(ann,{depth:PLATE_T,bevelEnabled:false,curveSegments:96}); annGeo.rotateX(Math.PI/2);
+mesh(carousel,annGeo,M.guard,0,YR+PLATE_TOP,0);
+
+const stubs=[], leds=[], ledMat=[];
+const LED_OFF=std(0x6b737b,.1,.5), LED_DONE=std(0x1fa38a,.1,.4);
+const LED_NEXT=new THREE.MeshStandardMaterial({color:0x3ccf6e,emissive:0x2bd160,emissiveIntensity:0.9,roughness:.3});
+function numSprite(n){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');
+  g.fillStyle='rgba(29,33,37,.82)';g.beginPath();g.arc(32,32,26,0,Math.PI*2);g.fill();
+  g.fillStyle='#fff';g.font='600 30px system-ui,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(String(n),32,34);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(4.2,4.2,1);return s;}
+for(let k=0;k<N;k++){
+  const g=L[k], sg=new THREE.Group(); sg.rotation.y=k*STEP; carousel.add(sg); stubs.push(sg);
+  const rodLen=g+2.2+0.3; const rod=mesh(sg,new THREE.CylinderGeometry(ROD_R,ROD_R,rodLen,24),M.alu,0,YR,RC-0.3+rodLen/2); rod.rotation.x=Math.PI/2;
+  const pl=plateLen(g);
+  if(pl>=0.8){
+    const T=Math.min(2,pl), w=PLATE_W/2, wt=1.0;
+    const sh=new THREE.Shape(); sh.moveTo(-w,0); sh.lineTo(-w,pl-T); sh.lineTo(-wt,pl); sh.lineTo(wt,pl); sh.lineTo(w,pl-T); sh.lineTo(w,0); sh.lineTo(-w,0);
+    const pg=new THREE.ExtrudeGeometry(sh,{depth:PLATE_T,bevelEnabled:false}); pg.rotateX(Math.PI/2); pg.translate(0,0,RC);
+    mesh(sg,pg,M.guard,0,YR+PLATE_TOP,0);
+  }
+  const prof=[[1.26,g-1.3],[1.6,g-1.3],[1.6,g-1.1],[1.45,g-0.8],[1.45,g+0.8],[1.75,g+1.62],[1.75,g+2.0],[1.5,g+2.2],[1.26,g+2.2]];
+  const lg=new THREE.LatheGeometry(prof.map(p=>new THREE.Vector2(p[0],p[1])),40); lg.rotateX(Math.PI/2); lg.translate(0,0,RC);
+  mesh(sg,lg,M.guard,0,YR,0);
+  const led=mesh(sg,new THREE.SphereGeometry(0.9,18,12),LED_OFF,0,YR+2.6,RC-1.2); leds.push(led);
+  const sp=numSprite(k+1); sp.position.set(0,YR+6.5,RC+g+3.2); sg.add(sp);
+}
+
+/* ---------- hangers ---------- */
+const COLORS=[0xc9a27e,0x6f86a3,0xb5524b,0xe2d8c6,0x5e7b62,0x3f4652,0xd29aa8,0x8c6f9e];
+const shirt=new THREE.Shape();
+[[-6,-8.6],[-20,-14.6],[-26,-24],[-21.5,-29],[-17.5,-23.5],[-17.5,-74],[17.5,-74],[17.5,-23.5],[21.5,-29],[26,-24],[20,-14.6],[6,-8.6],[3,-11],[0,-11.6],[-3,-11]].forEach((p,i)=>i?shirt.lineTo(p[0]*24/26,p[1]):shirt.moveTo(p[0]*24/26,p[1]));
+const shirtGeo=new THREE.ExtrudeGeometry(shirt,{depth:1.0,bevelEnabled:true,bevelSize:0.3,bevelThickness:0.25,bevelSegments:2}); shirtGeo.translate(0,0,-0.5);
+let showCloth=true; const shirts=[];
+function hookPts(){const V=(x,y)=>new THREE.Vector3(x,y,0),pts=[];
+  for(let i=0;i<=5;i++){const s=i/5;pts.push(V(2.6*s,-6+2.5*s));}
+  for(let i=1;i<=6;i++)pts.push(V(2.6,-3.5+3.5*i/6));
+  for(let a=5;a<=190;a+=5){const r=a*Math.PI/180;pts.push(V(HOOK_R*Math.cos(r),HOOK_R*Math.sin(r)));}
+  return pts;}
+const hookGeo=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hookPts(),false,'centripetal'),120,0.17,8,false);
+const V3=(x,y)=>new THREE.Vector3(x,y,0);
+const shoulderGeos=[[V3(0,-6),V3(21,-16)],[V3(21,-16),V3(-21,-16)],[V3(-21,-16),V3(0,-6)]].map(([a,b])=>new THREE.TubeGeometry(new THREE.LineCurve3(a,b),1,0.17,8,false));
+function makeHanger(color,ghost){
+  const g=new THREE.Group();
+  const wire=ghost?new THREE.MeshStandardMaterial({color:0xe05a4f,emissive:0x8a1f18,emissiveIntensity:.4,transparent:true,opacity:.9}):std(0xc9ced3,.85,.25);
+  wire.transparent=true;
+  mesh(g,hookGeo,wire);
+  let cloth=null,s=null;
+  if(!ghost){shoulderGeos.forEach(sg=>mesh(g,sg,wire));cloth=std(color,0,.92);cloth.transparent=true;s=mesh(g,shirtGeo,cloth);s.visible=showCloth;shirts.push(s);}
+  return {g,wire,cloth,shirt:s};
+}
+function setOpacity(h,o){h.wire.opacity=o;h.wire.depthWrite=o>0.99;if(h.cloth){h.cloth.opacity=o;h.cloth.depthWrite=o>0.99;}}
+
+/* ---------- phases ---------- */
+const ease=u=>u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2, clamp=u=>Math.max(0,Math.min(1,u));
+const PH=[];
+for(let k=0;k<N;k++){
+  PH.push({k:'rotate',i:k,d:1.5,s:1});
+  if(k===4)PH.push({k:'ghost',i:k,d:4.2,s:3});
+  PH.push({k:'hang',i:k,d:2.8,s:2});
+}
+PH.push({k:'done',d:5,s:4},{k:'clear',d:1.4,s:4});
+const st={psi:HANG_ANG,psi0:0,psi1:0,hung:[],cur:null,ghost:null};
+let pi=0,pt=0,playing=true,speed=1;
+const mod=(a,n)=>((a%n)+n)%n;
+
+function textFor(p){
+  const n=p.i!==undefined?p.i+1:0;
+  switch(p.k){
+    case 'rotate':return [`① ${n}번 봉을 거는 위치로`,`행거가 45° 돌아 ${n}번 봉(표시등 초록)이 거는 위치에 옵니다. 봉 길이 ${L[p.i]}cm`];
+    case 'hang':return [`② ${n}번째 옷 걸기`,n===1?'옆에서 밀어 넣어 둥근 끝을 고리 안으로 넣고, 내리면 끝의 홈에 앉습니다':`${n}번 옷은 ${n-1}번 옷보다 바깥(반지름 ${RC+L[p.i]}cm)에 걸려 그 위에 겹칩니다`];
+    case 'ghost':return ['잘못 걸기 예시 · 판 위에 걸려고 하면','판 폭 60mm가 고리 폭 52mm보다 넓어서 옷걸이 목이 판 모서리에 막힙니다. 여기서는 걸 수 없고, 끝으로 가야만 걸립니다'];
+    case 'done':return ['④ 8벌 완성','위에서 보면 바깥으로 갈수록 반지름이 커지는 나선입니다. 뺄 때는 마지막에 건 8번부터 바깥으로 빼면 걸리지 않습니다'];
+    case 'clear':return ['다시 처음부터','옷을 비우고 1번 봉부터 다시 겁니다'];
+  }
+}
+function setHud(i){const p=PH[i],t=textFor(p);$('hTtl').textContent=t[0];$('hSub').textContent=t[1];
+  $('hud').classList.toggle('bad',p.k==='ghost');
+  document.querySelectorAll('#steps li').forEach(li=>li.classList.toggle('on',+li.dataset.s===p.s));
+  document.querySelectorAll('#tbl tbody tr').forEach(tr=>tr.classList.toggle('cur',p.i!==undefined&&+tr.dataset.i===p.i));}
+function updateLeds(next){leds.forEach((l,k)=>{l.material=st.hung[k]?LED_DONE:(k===next?LED_NEXT:LED_OFF);});}
+function placeLocal(h,k,x,y,z){stubs[k].add(h.g);h.g.position.set(x,y,z);h.g.rotation.set(0,0,0);}
+
+function enter(i){const p=PH[i];
+  if(p.k==='rotate'){st.psi0=st.psi;const base=HANG_ANG-p.i*STEP;st.psi1=st.psi-mod(st.psi-base,Math.PI*2);updateLeds(p.i);}
+  if(p.k==='hang'){const h=makeHanger(COLORS[p.i%COLORS.length],false);st.cur=h;h.k=p.i;}
+  if(p.k==='ghost'){const h=makeHanger(0,true);st.ghost=h;}
+  if(p.k==='done'){updateLeds(-1);}
+  setHud(i);}
+function update(i,u){const p=PH[i];
+  if(p.k==='rotate'){st.psi=st.psi0+(st.psi1-st.psi0)*ease(u);}
+  if(p.k==='hang'&&st.cur){const g=L[p.i],z=RC+g,hi=SEAT_Y+4;
+    if(u<0.55){placeLocal(st.cur,p.i,30*(1-ease(u/0.55)),hi,z);}
+    else{const s=ease(clamp((u-0.55)/0.35));placeLocal(st.cur,p.i,0,hi+(SEAT_Y-hi)*s,z);}}
+  if(p.k==='ghost'&&st.ghost){const z=RC+plateLen(L[p.i])*0.45,hy=YR+PLATE_TOP+0.17+1.6,stopX=PLATE_W/2+0.17-HOOK_R+0.02;
+    if(u<0.45){placeLocal(st.ghost,p.i,stopX+(30-stopX)*(1-ease(u/0.45)),hy,z);}
+    else if(u<0.62){const sh=Math.sin((u-0.45)/0.17*Math.PI*3)*0.25*(1-(u-0.45)/0.17);placeLocal(st.ghost,p.i,stopX+Math.abs(sh),hy,z);}
+    else{placeLocal(st.ghost,p.i,stopX,hy,z);setOpacity(st.ghost,1-clamp((u-0.82)/0.18));}}
+  if(p.k==='clear'){st.hung.forEach(h=>h&&setOpacity(h,1-ease(u)));}
+}
+function exit(i){const p=PH[i];
+  if(p.k==='hang'&&st.cur){st.hung[p.i]=st.cur;st.cur=null;updateLeds(p.i+1<N?p.i+1:-1);}
+  if(p.k==='ghost'&&st.ghost){st.ghost.g.parent&&st.ghost.g.parent.remove(st.ghost.g);st.ghost=null;}
+  if(p.k==='clear'){st.hung.forEach(h=>{if(h){h.g.parent&&h.g.parent.remove(h.g);if(h.shirt){const j=shirts.indexOf(h.shirt);if(j>=0)shirts.splice(j,1);}}});st.hung=[];}
+}
+function advance(){update(pi,1);exit(pi);pi=(pi+1)%PH.length;pt=0;enter(pi);update(pi,0);}
+
+/* ---------- UI ---------- */
+$('bPlay').onclick=e=>{playing=!playing;e.currentTarget.textContent=playing?'일시정지':'재생';e.currentTarget.setAttribute('aria-pressed',String(playing));};
+$('bStep').onclick=()=>advance();
+$('bReset').onclick=()=>location.reload();
+$('bCloth').onclick=e=>{showCloth=!showCloth;shirts.forEach(m=>m.visible=showCloth);e.currentTarget.setAttribute('aria-pressed',String(showCloth));};
+$('gSpeed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;speed=+b.dataset.v;$('gSpeed').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
+
+const CAM={
+  overview:{p:[165,225,175],t:[0,112,0]},
+  hang:{p:[150,188,-98],t:[50,142,-2]},
+  ghost:{p:[80,176,-30],t:[54,159,0]},
+  top:{p:[0.1,560,0.1],t:[0,120,0]}
+};
+const AUTO={rotate:'hang',hang:'hang',ghost:'ghost',done:'top',clear:'overview'};
+let camMode='auto',camGoal=CAM.overview,programmatic=false;
+const vP=new THREE.Vector3(),vT=new THREE.Vector3();
+camera.position.set(...CAM.overview.p); controls.target.set(...CAM.overview.t);
+function setCamButtons(v){$('gCam').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v===v)));}
+$('gCam').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const v=b.dataset.v;setCamButtons(v);camMode=v==='auto'?'auto':'goto';camGoal=CAM[v]||CAM.overview;});
+controls.addEventListener('start',()=>{if(!programmatic&&camMode!=='free'){camMode='free';setCamButtons('');}});
+function moveCam(goal,k){vP.set(...goal.p);vT.set(...goal.t);camera.position.lerp(vP,k);controls.target.lerp(vT,k);return camera.position.distanceTo(vP)<0.5&&controls.target.distanceTo(vT)<0.5;}
+
+function resize(){const w=view.clientWidth,h=view.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(view); resize();
+
+enter(0); update(0,0);
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(playing){pt+=dt*speed;const d=PH[pi].d;if(pt>=d)advance();else update(pi,pt/d);}
+  carousel.rotation.y=st.psi;
+  programmatic=true;
+  if(camMode==='auto')moveCam(CAM[AUTO[PH[pi].k]],0.035);
+  else if(camMode==='goto'){if(moveCam(camGoal,0.08))camMode='free';}
+  controls.update(); programmatic=false;
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
