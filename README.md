@@ -75,8 +75,9 @@ Capstone_Design/
 │   │   └── assets/
 │   │       └── YYYY-MM-DD/         # 해당 날짜 회의록의 첨부 이미지
 │   └── lectures/       # 수업 피드백 및 정리
-├── worklog/            # 개인/팀 작업 기록
-└── src/                # 소스 코드
+├── RFID/               # RFID 리더기 사용
+└── worklog/            # 개인/팀 작업 기록
+
 ```
 
 <br>
