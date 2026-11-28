@@ -1,11 +1,9 @@
 <div align="center">
 
-# 🎓 Capstone Design Project
-
-### _프로젝트 한 줄 소개를 여기에 적어주세요_
+<img src="docs/assets/readme-banner.svg" alt="악마들은 프라다를 입는다 &amp; HangerWay - 의류 순환을 위한 자율 재진열 로봇" width="100%">
 
 ![Status](https://img.shields.io/badge/status-in%20progress-yellow?style=for-the-badge)
-![Team](https://img.shields.io/badge/team-Capstone-blue?style=for-the-badge)
+![Team](https://img.shields.io/badge/team-%EC%95%85%EB%A7%88%EB%93%A4%EC%9D%80%20%ED%94%84%EB%9D%BC%EB%8B%A4%EB%A5%BC%20%EC%9E%85%EB%8A%94%EB%8B%A4-blue?style=for-the-badge)
 ![Year](https://img.shields.io/badge/2026-Capstone%20Design-orange?style=for-the-badge)
 
 </div>
@@ -16,7 +14,9 @@
 
 > 이곳에 프로젝트 배경, 목적, 해결하려는 문제를 간단히 작성해주세요.
 
-- **프로젝트명** : `프로젝트 이름을 입력하세요`
+- **작품명** : & HangerWay
+- **팀명** : 악마들은 프라다를 입는다
+- **주제** : 의류 순환을 위한 자율 재진열 로봇
 - **소속** : 인천대학교 임베디드시스템공학과
 - **진행 기간** : `2026.09 ~`
 
@@ -75,6 +75,7 @@ Capstone_Design/
 │   │   └── assets/
 │   │       └── YYYY-MM-DD/         # 해당 날짜 회의록의 첨부 이미지
 │   └── lectures/       # 수업 피드백 및 정리
+├── Gripper/            # Gripper 제작
 ├── RFID/               # RFID 리더기 사용
 └── worklog/            # 개인/팀 작업 기록
 
@@ -108,6 +109,6 @@ Capstone_Design/
 
 <br>
 
-**Made with 💡 by our Capstone Team**
+**Made with 💡 by 악마들은 프라다를 입는다**
 
 </div>
